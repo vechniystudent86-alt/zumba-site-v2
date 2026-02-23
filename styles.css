@@ -1144,6 +1144,19 @@ section[id] {
     font-size: 0.9rem;
 }
 
+.footer-links {
+    margin-top: 15px;
+}
+
+.footer-links a {
+    color: var(--color-primary);
+    transition: color var(--transition-fast);
+}
+
+.footer-links a:hover {
+    color: var(--color-primary-light);
+}
+
 /* ========================================
    Animations & Effects
    ======================================== */
