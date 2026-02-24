@@ -408,21 +408,40 @@ img {
 
 .image-container {
     position: relative;
-    width: 350px;
-    height: 350px;
+    width: 450px;
+    height: 450px;
 }
 
-.image-placeholder {
-    width: 100%;
-    height: 100%;
+.image-frame {
+    width: 340px;
+    height: 340px;
     border-radius: 50%;
     background: var(--gradient-card);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    z-index: 2;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 3px solid rgba(255, 45, 117, 0.3);
     overflow: hidden;
+}
+
+.image-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+    animation: photoFloat 4s ease-in-out infinite;
+}
+
+@keyframes photoFloat {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
 }
 
 .dancer-icon {
@@ -825,25 +844,40 @@ section[id] {
 .reviews {
     padding: var(--section-padding);
     background: var(--color-bg-card);
+    overflow: hidden;
+}
+
+.reviews-slider-container {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .reviews-slider {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    position: relative;
+    overflow: hidden;
+    padding: 20px 60px;
+}
+
+.reviews-track {
+    display: flex;
     gap: 30px;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .review-card {
+    flex: 0 0 calc(33.333% - 20px);
     background: var(--color-bg-card);
     border: 1px solid rgba(255,255,255,0.2);
     border-radius: 20px;
-    padding: 40px;
+    padding: 30px;
     transition: all var(--transition-medium);
 }
 
 .review-card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-5px) scale(1.02);
     border-color: rgba(255, 45, 117, 0.3);
+    box-shadow: 0 10px 40px rgba(255, 45, 117, 0.2);
 }
 
 .review-stars {
@@ -851,6 +885,16 @@ section[id] {
     font-size: 1.2rem;
     margin-bottom: 20px;
     letter-spacing: 3px;
+    animation: starPulse 2s ease-in-out infinite;
+}
+
+@keyframes starPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
 }
 
 .review-text {
@@ -858,6 +902,7 @@ section[id] {
     line-height: 1.8;
     margin-bottom: 25px;
     font-style: italic;
+    font-size: 1.05rem;
 }
 
 .review-author {
@@ -876,6 +921,16 @@ section[id] {
     align-items: center;
     font-weight: 600;
     font-size: 0.9rem;
+    animation: avatarGlow 3s ease-in-out infinite;
+}
+
+@keyframes avatarGlow {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 45, 117, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(255, 45, 117, 0.6);
+    }
 }
 
 .author-info {
@@ -893,26 +948,249 @@ section[id] {
     color: var(--color-text-muted);
 }
 
-.slider-dots {
+/* Slider Navigation */
+.slider-nav {
     display: flex;
     justify-content: center;
-    gap: 10px;
+    align-items: center;
+    gap: 20px;
     margin-top: 40px;
 }
 
+.slider-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid var(--color-primary);
+    background: transparent;
+    cursor: pointer;
+    transition: all var(--transition-medium);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+}
+
+.slider-btn:hover {
+    background: var(--color-primary);
+    color: var(--color-text-primary);
+    transform: scale(1.1);
+    box-shadow: 0 0 20px rgba(255, 45, 117, 0.4);
+}
+
+.slider-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+.slider-dots {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
 .slider-dots button {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     border: 2px solid var(--color-text-muted);
     background: transparent;
     cursor: pointer;
     transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.slider-dots button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--color-primary);
+    transform: scale(0);
+    transition: transform var(--transition-medium);
+    border-radius: 50%;
+}
+
+.slider-dots button.active::before {
+    transform: scale(1);
 }
 
 .slider-dots button.active {
-    background: var(--color-primary);
     border-color: var(--color-primary);
+}
+
+.slider-dots button:hover {
+    border-color: var(--color-primary);
+}
+
+/* Progress indicator */
+.slider-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    border-radius: 3px;
+    transition: width 0.3s linear;
+}
+
+@media (max-width: 768px) {
+    .reviews-slider {
+        padding: 20px 40px;
+    }
+
+    .review-card {
+        flex: 0 0 calc(100% - 20px);
+        padding: 30px 20px;
+    }
+
+    .slider-btn {
+        width: 45px;
+        height: 45px;
+    }
+
+    .slider-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .reviews-slider {
+        padding: 20px 50px;
+    }
+
+    .review-card {
+        flex: 0 0 calc(50% - 15px);
+    }
+}
+
+/* ========================================
+   Location Section
+   ======================================== */
+.location {
+    padding: var(--section-padding);
+    background: var(--color-bg-card);
+}
+
+.location-content {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 40px;
+    align-items: stretch;
+}
+
+.map-container {
+    background: var(--color-bg-light);
+    border-radius: 20px;
+    overflow: hidden;
+    min-height: 500px;
+    position: relative;
+}
+
+#yandex-map {
+    width: 100%;
+    height: 500px;
+    position: relative;
+}
+
+#yandex-map .ymaps-2-1-79-map,
+#yandex-map .ymaps-2-1-79-map * {
+    border-radius: 20px;
+}
+
+.location-info {
+    display: flex;
+    align-items: center;
+}
+
+.location-card {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 40px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    width: 100%;
+}
+
+.location-card h3 {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: var(--color-text-primary);
+}
+
+.location-card .address {
+    color: var(--color-text-secondary);
+    margin-bottom: 25px;
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.location-details {
+    margin-bottom: 30px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-icon {
+    font-size: 1.3rem;
+    width: 30px;
+    text-align: center;
+}
+
+.location-card .btn {
+    width: 100%;
+    text-align: center;
+}
+
+@media (max-width: 1024px) {
+    .location-content {
+        grid-template-columns: 1fr;
+    }
+
+    .location-info {
+        order: -1;
+    }
+
+    .map-container,
+    #yandex-map {
+        min-height: 400px;
+        height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .location-card {
+        padding: 30px 20px;
+    }
+
+    .map-container,
+    #yandex-map {
+        min-height: 350px;
+        height: 350px;
+    }
+
+    .location-card h3 {
+        font-size: 1.3rem;
+    }
+
+    .location-card .address {
+        font-size: 1rem;
+    }
 }
 
 /* ========================================
@@ -998,6 +1276,45 @@ section[id] {
 .schedule-list li span:first-child {
     font-weight: 600;
     color: var(--color-text-primary);
+}
+
+.price-info {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(255, 45, 117, 0.1);
+    border-radius: 10px;
+    border-left: 3px solid var(--color-primary);
+}
+
+.price-info p {
+    margin: 8px 0;
+    color: var(--color-text-primary);
+    font-size: 0.95rem;
+}
+
+.price-info strong {
+    color: var(--color-primary);
+}
+
+.cta-text {
+    margin-top: 20px;
+    padding: 15px;
+    background: var(--gradient-primary);
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    font-size: 1rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.02);
+    }
 }
 
 .social-links {

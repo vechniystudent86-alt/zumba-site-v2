@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ContactForm.init();
     SmoothScroll.init();
     HeartAnimation.init();
+    ReviewsSlider.init();
 });
 
 /**
@@ -411,3 +412,236 @@ window.addEventListener('scroll', () => {
         });
     }
 });
+
+/**
+ * Reviews Slider Module
+ */
+const ReviewsSlider = {
+    track: null,
+    cards: [],
+    dotsContainer: null,
+    prevBtn: null,
+    nextBtn: null,
+    currentIndex: 0,
+    totalSlides: 0,
+    visibleSlides: 3,
+    autoPlayInterval: null,
+    autoPlayDelay: 5000,
+    isAnimating: false,
+
+    init() {
+        this.track = document.querySelector('.reviews-track');
+        this.cards = document.querySelectorAll('.review-card');
+        this.dotsContainer = document.querySelector('.slider-dots');
+        this.prevBtn = document.querySelector('.slider-prev');
+        this.nextBtn = document.querySelector('.slider-next');
+        this.totalSlides = this.cards.length;
+
+        console.log('ReviewsSlider init:', this.totalSlides, 'cards found');
+
+        if (this.totalSlides === 0) {
+            console.error('No review cards found!');
+            return;
+        }
+
+        this.updateVisibleSlides();
+        this.createDots();
+        this.addEventListeners();
+        this.addResizeListener();
+        this.startAutoPlay();
+        this.updateSlider();
+    },
+
+    updateVisibleSlides() {
+        if (window.innerWidth <= 768) {
+            this.visibleSlides = 1;
+        } else if (window.innerWidth <= 1024) {
+            this.visibleSlides = 2;
+        } else {
+            this.visibleSlides = 3;
+        }
+    },
+
+    addResizeListener() {
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                this.updateVisibleSlides();
+                this.createDots();
+                this.currentIndex = 0;
+                this.updateSlider();
+            }, 250);
+        });
+    },
+
+    createDots() {
+        this.dotsContainer.innerHTML = '';
+        const totalDots = Math.max(1, this.totalSlides - this.visibleSlides + 1);
+        for (let i = 0; i < totalDots; i++) {
+            const dot = document.createElement('button');
+            dot.setAttribute('aria-label', `Страница ${i + 1}`);
+            if (i === 0) dot.classList.add('active');
+            dot.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.goToSlide(i);
+            });
+            this.dotsContainer.appendChild(dot);
+        }
+    },
+
+    addEventListeners() {
+        if (this.prevBtn) {
+            this.prevBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.prev();
+                this.resetAutoPlay();
+            });
+        }
+
+        if (this.nextBtn) {
+            this.nextBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.next();
+                this.resetAutoPlay();
+            });
+        }
+
+        // Pause on hover
+        const sliderContainer = document.querySelector('.reviews-slider-container');
+        if (sliderContainer) {
+            sliderContainer.addEventListener('mouseenter', () => this.stopAutoPlay());
+            sliderContainer.addEventListener('mouseleave', () => this.startAutoPlay());
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                this.prev();
+                this.resetAutoPlay();
+            } else if (e.key === 'ArrowRight') {
+                this.next();
+                this.resetAutoPlay();
+            }
+        });
+
+        // Touch support
+        this.initTouch();
+    },
+
+    initTouch() {
+        const slider = document.querySelector('.reviews-slider');
+        if (!slider) return;
+
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        slider.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        slider.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            this.handleSwipe(touchStartX, touchEndX);
+        }, { passive: true });
+    },
+
+    handleSwipe(startX, endX) {
+        const diff = startX - endX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) {
+                this.next();
+            } else {
+                this.prev();
+            }
+            this.resetAutoPlay();
+        }
+    },
+
+    updateSlider() {
+        if (!this.track) return;
+
+        const cardWidth = this.cards[0].offsetWidth;
+        const gap = 30; // из CSS gap
+        const offset = this.currentIndex * (cardWidth + gap);
+
+        this.track.style.transform = `translateX(-${offset}px)`;
+        this.updateDots();
+    },
+
+    goToSlide(index) {
+        if (this.isAnimating) return;
+
+        const maxIndex = Math.max(0, this.totalSlides - this.visibleSlides);
+        this.currentIndex = Math.max(0, Math.min(index, maxIndex));
+        
+        this.isAnimating = true;
+        setTimeout(() => {
+            this.isAnimating = false;
+        }, 600);
+
+        this.updateSlider();
+    },
+
+    next() {
+        const maxIndex = Math.max(0, this.totalSlides - this.visibleSlides);
+        if (this.currentIndex >= maxIndex) {
+            this.currentIndex = 0; // Циклически возвращаемся в начало
+        } else {
+            this.currentIndex++;
+        }
+        this.updateSlider();
+    },
+
+    prev() {
+        const maxIndex = Math.max(0, this.totalSlides - this.visibleSlides);
+        if (this.currentIndex <= 0) {
+            this.currentIndex = maxIndex; // Циклически в конец
+        } else {
+            this.currentIndex--;
+        }
+        this.updateSlider();
+    },
+
+    updateDots() {
+        const dots = this.dotsContainer.querySelectorAll('button');
+        const maxIndex = Math.max(0, this.totalSlides - this.visibleSlides);
+        dots.forEach((dot, index) => {
+            dot.classList.toggle('active', index === this.currentIndex);
+        });
+    },
+
+    startAutoPlay() {
+        this.stopAutoPlay();
+        this.autoPlayInterval = setInterval(() => {
+            this.next();
+        }, this.autoPlayDelay);
+    },
+
+    stopAutoPlay() {
+        if (this.autoPlayInterval) {
+            clearInterval(this.autoPlayInterval);
+            this.autoPlayInterval = null;
+        }
+    },
+
+    resetAutoPlay() {
+        this.startAutoPlay();
+    }
+};
+
+/**
+ * Heart Animation Module
+ */
+const HeartAnimation = {
+    heartsContainer: null,
+
+    init() {
+        this.heartsContainer = document.getElementById('hearts-container');
+        if (!this.heartsContainer) return;
+        // Hearts are handled by CustomCursor module
+    }
+};
