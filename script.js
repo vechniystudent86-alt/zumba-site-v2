@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     SmoothScroll.init();
     HeartAnimation.init();
     ReviewsSlider.init();
+    FAQ.init();
 });
 
 /**
@@ -305,53 +306,132 @@ const TiltEffect = {
  */
 const ContactForm = {
     form: null,
-    
+    telegramBotToken: '8544616219:AAFiKfXks86HrqVbvuk77NvSARnBLlrHmaQ',
+    telegramChatId: '293171586',
+
     init() {
         this.form = document.getElementById('contactForm');
         this.addSubmitListener();
     },
-    
+
     addSubmitListener() {
         this.form.addEventListener('submit', (e) => {
             e.preventDefault();
-            
+
+            // Clear previous messages
+            this.clearMessages();
+
             // Get form values
             const formData = new FormData(this.form);
             const data = Object.fromEntries(formData);
-            
+
             // Simple validation
             if (!this.validateForm(data)) {
                 return;
             }
-            
-            // Show success message
-            this.showSuccessMessage();
-            
-            // Reset form
-            this.form.reset();
-            
-            // Log data (in production, send to server)
-            console.log('Form submitted:', data);
+
+            // Send to Telegram
+            this.sendToTelegram(data);
         });
+    },
+
+    async sendToTelegram(data) {
+        const submitBtn = this.form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Отправка...';
+
+        // Format message for Telegram (MarkdownV2)
+        const message = `
+🔔 *Новая заявка на тренировку!*
+
+👤 *Имя:* ${this.escapeMarkdown(data.name)}
+📱 *Телефон:* ${this.escapeMarkdown(data.phone)}
+💃 *Программа:* ${this.getProgramName(data.program)}
+💬 *Сообщение:* ${data.message ? this.escapeMarkdown(data.message) : 'Нет сообщения'}
+
+🌐 Сайт: zumba-spb.ru
+📅 ${new Date().toLocaleString('ru-RU')}
+        `.trim();
+
+        try {
+            const response = await fetch(
+                `https://api.telegram.org/bot${this.telegramBotToken}/sendMessage`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: this.telegramChatId,
+                        text: message,
+                        parse_mode: 'Markdown',
+                        link_preview_options: { is_disabled: true }
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (result.ok) {
+                // Отправка цели в Яндекс.Метрику
+                if (typeof ym !== 'undefined') {
+                    ym(106970869, 'reachGoal', 'form_submit');
+                }
+                
+                this.showSuccessMessage();
+                this.form.reset();
+            } else {
+                throw new Error('Ошибка Telegram API');
+            }
+        } catch (error) {
+            console.error('Ошибка отправки:', error);
+            this.showInlineError('Ошибка отправки. Позвоните нам!');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    },
+
+    escapeMarkdown(text) {
+        // Экранирование специальных символов Markdown
+        return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+    },
+
+    getProgramName(program) {
+        const programs = {
+            'classic': 'Zumba Classic',
+            'toning': 'Zumba Toning',
+            'gold': 'Zumba Gold',
+            'aqua': 'Aqua Zumba'
+        };
+        return programs[program] || program;
     },
     
     validateForm(data) {
+        let isValid = true;
+
         if (!data.name || data.name.trim().length < 2) {
-            this.showError('Пожалуйста, введите корректное имя');
-            return false;
+            this.showInlineError('Пожалуйста, введите корректное имя');
+            isValid = false;
         }
-        
+
         if (!data.phone || data.phone.trim().length < 10) {
-            this.showError('Пожалуйста, введите корректный номер телефона');
-            return false;
+            this.showInlineError('Пожалуйста, введите корректный номер телефона');
+            isValid = false;
         }
-        
-        return true;
+
+        // Проверка чекбокса согласия
+        const privacyCheckbox = document.getElementById('privacy');
+        if (privacyCheckbox && !privacyCheckbox.checked) {
+            this.showInlineError('Необходимо согласие на обработку персональных данных');
+            isValid = false;
+        }
+
+        return isValid;
     },
     
     showSuccessMessage() {
         const successMsg = document.createElement('div');
-        successMsg.className = 'success-message';
+        successMsg.className = 'form-message success';
         successMsg.innerHTML = `
             <div style="text-align: center; padding: 40px;">
                 <svg style="width: 60px; height: 60px; color: #00D9FF; margin-bottom: 20px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -362,13 +442,37 @@ const ContactForm = {
                 <p style="color: var(--color-text-secondary);">Я свяжусь с вами в ближайшее время</p>
             </div>
         `;
-        
+
         this.form.innerHTML = '';
         this.form.appendChild(successMsg);
     },
-    
-    showError(message) {
-        alert(message);
+
+    showInlineError(message) {
+        // Create or get message container
+        let messageEl = this.form.querySelector('.form-message');
+        if (!messageEl) {
+            messageEl = document.createElement('div');
+            messageEl.className = 'form-message';
+            this.form.insertBefore(messageEl, this.form.firstChild);
+        }
+
+        messageEl.className = 'form-message error';
+        messageEl.textContent = message;
+
+        // Scroll to message
+        messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+
+    clearMessages() {
+        const messageEl = this.form.querySelector('.form-message');
+        if (messageEl) {
+            messageEl.remove();
+        }
+
+        // Clear error states from form groups
+        this.form.querySelectorAll('.form-group.error').forEach(group => {
+            group.classList.remove('error');
+        });
     }
 };
 
@@ -562,14 +666,16 @@ const ReviewsSlider = {
     },
 
     updateSlider() {
-        if (!this.track) return;
+        if (!this.track || this.cards.length === 0) return;
 
-        const cardWidth = this.cards[0].offsetWidth;
+        const cardWidth = this.cards[0].getBoundingClientRect().width;
         const gap = 30; // из CSS gap
         const offset = this.currentIndex * (cardWidth + gap);
 
         this.track.style.transform = `translateX(-${offset}px)`;
         this.updateDots();
+        
+        console.log('Slider updated: index=' + this.currentIndex + ', cardWidth=' + cardWidth + ', offset=' + offset + 'px');
     },
 
     goToSlide(index) {
@@ -577,7 +683,7 @@ const ReviewsSlider = {
 
         const maxIndex = Math.max(0, this.totalSlides - this.visibleSlides);
         this.currentIndex = Math.max(0, Math.min(index, maxIndex));
-        
+
         this.isAnimating = true;
         setTimeout(() => {
             this.isAnimating = false;
@@ -587,23 +693,35 @@ const ReviewsSlider = {
     },
 
     next() {
+        if (this.isAnimating) return;
+        
         const maxIndex = Math.max(0, this.totalSlides - this.visibleSlides);
         if (this.currentIndex >= maxIndex) {
             this.currentIndex = 0; // Циклически возвращаемся в начало
         } else {
             this.currentIndex++;
         }
+        this.isAnimating = true;
         this.updateSlider();
+        setTimeout(() => {
+            this.isAnimating = false;
+        }, 600);
     },
 
     prev() {
+        if (this.isAnimating) return;
+        
         const maxIndex = Math.max(0, this.totalSlides - this.visibleSlides);
         if (this.currentIndex <= 0) {
             this.currentIndex = maxIndex; // Циклически в конец
         } else {
             this.currentIndex--;
         }
+        this.isAnimating = true;
         this.updateSlider();
+        setTimeout(() => {
+            this.isAnimating = false;
+        }, 600);
     },
 
     updateDots() {
@@ -643,5 +761,125 @@ const HeartAnimation = {
         this.heartsContainer = document.getElementById('hearts-container');
         if (!this.heartsContainer) return;
         // Hearts are handled by CustomCursor module
+    }
+};
+
+/**
+ * FAQ Accordion Module
+ */
+const FAQ = {
+    items: null,
+
+    init() {
+        this.items = document.querySelectorAll('.faq-item');
+        if (!this.items.length) return;
+        this.addEventListeners();
+    },
+
+    addEventListeners() {
+        this.items.forEach(item => {
+            const question = item.querySelector('.faq-question');
+            question.addEventListener('click', () => this.toggleItem(item));
+        });
+    },
+
+    toggleItem(item) {
+        const question = item.querySelector('.faq-question');
+        const isExpanded = question.getAttribute('aria-expanded') === 'true';
+
+        // Close all other items
+        this.items.forEach(otherItem => {
+            if (otherItem !== item) {
+                otherItem.classList.remove('active');
+                otherItem.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // Toggle current item
+        if (isExpanded) {
+            item.classList.remove('active');
+            question.setAttribute('aria-expanded', 'false');
+        } else {
+            item.classList.add('active');
+            question.setAttribute('aria-expanded', 'true');
+        }
+    }
+};
+
+/**
+ * Yandex.Metrika Goals Module
+ */
+const MetrikaGoals = {
+    init() {
+        this.trackPhoneClicks();
+        this.trackNavClicks();
+    },
+
+    trackPhoneClicks() {
+        const phoneLinks = document.querySelectorAll('a[href^="tel:"]');
+        phoneLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (typeof ym !== 'undefined') {
+                    ym(106970869, 'reachGoal', 'phone_click');
+                }
+            });
+        });
+    },
+
+    trackNavClicks() {
+        const navLinks = document.querySelectorAll('.nav-menu a[href^="#"]');
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (typeof ym !== 'undefined') {
+                    const section = link.getAttribute('href').substring(1);
+                    ym(106970869, 'reachGoal', 'nav_click', { section });
+                }
+            });
+        });
+    }
+};
+
+// Initialize Metrika Goals after DOM loaded
+document.addEventListener('DOMContentLoaded', () => {
+    MetrikaGoals.init();
+    ServiceWorker.init();
+});
+
+/**
+ * Service Worker Module
+ */
+const ServiceWorker = {
+    init() {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('/sw.js', {
+                        scope: '/'
+                    });
+                    console.log('[SW] Service Worker registered:', registration.scope);
+                    
+                    // Check for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                this.showUpdateNotification();
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error('[SW] Service Worker registration failed:', error);
+                }
+            });
+        }
+    },
+
+    showUpdateNotification() {
+        if (confirm('Доступна новая версия сайта! Перезагрузить страницу?')) {
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+            }
+            window.location.reload();
+        }
     }
 };

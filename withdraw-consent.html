@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отзыв согласия на обработку ПДн | Zumba Красносельский</title>
+    <meta name="robots" content="noindex">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.min.css">
+    <link rel="stylesheet" href="responsive.min.css">
+    <style>
+        .withdraw-page {
+            padding: 100px 20px;
+            min-height: 100vh;
+            background: var(--color-bg-dark);
+        }
+        .withdraw-container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: var(--color-bg-card);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .withdraw-title {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            color: var(--color-text-primary);
+            margin-bottom: 15px;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .withdraw-section {
+            margin-bottom: 25px;
+        }
+        .withdraw-section h2 {
+            font-size: 1.1rem;
+            color: var(--color-primary);
+            margin-bottom: 12px;
+        }
+        .withdraw-section p {
+            color: var(--color-text-secondary);
+            line-height: 1.7;
+            margin-bottom: 12px;
+        }
+        .form-box {
+            background: rgba(0,0,0,0.3);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .form-box label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--color-text-primary);
+            font-weight: 500;
+        }
+        .form-box input,
+        .form-box textarea {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(0,0,0,0.4);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            color: var(--color-text-primary);
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            margin-bottom: 15px;
+        }
+        .form-box input:focus,
+        .form-box textarea:focus {
+            border-color: var(--color-primary);
+            outline: none;
+        }
+        .form-box textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .btn-download {
+            display: inline-block;
+            padding: 14px 30px;
+            background: var(--gradient-primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(255, 45, 117, 0.4);
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-download:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 45, 117, 0.6);
+        }
+        .info-box {
+            background: rgba(255, 45, 117, 0.1);
+            border-left: 3px solid var(--color-primary);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 10px 10px 0;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 768px) {
+            .withdraw-container {
+                padding: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="withdraw-page">
+        <div class="withdraw-container">
+            <h1 class="withdraw-title">ОТЗЫВ СОГЛАСИЯ НА ОБРАБОТКУ ПЕРСОНАЛЬНЫХ ДАННЫХ</h1>
+            
+            <div class="withdraw-section">
+                <p>В соответствии с ч. 2 ст. 9 Федерального закона от 27.07.2006 № 152-ФЗ «О персональных данных» вы имеете право отозвать согласие на обработку своих персональных данных.</p>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>Важно:</strong> После отзыва согласия мы обязаны прекратить обработку и уничтожить ваши персональные данные в течение 30 дней, если иное не предусмотрено федеральным законом.</p>
+            </div>
+            
+            <div class="withdraw-section">
+                <h2>Как отозвать согласие:</h2>
+                <ol style="color: var(--color-text-secondary); line-height: 1.8; padding-left: 20px;">
+                    <li>Заполните форму ниже или скачайте бланк</li>
+                    <li>Подпишите заявление</li>
+                    <li>Отправьте скан/фото на email или передайте лично</li>
+                    <li>Сохраните копию заявления</li>
+                </ol>
+            </div>
+            
+            <div class="form-box">
+                <h3 style="color: var(--color-primary); margin-bottom: 20px;">Форма заявления</h3>
+                
+                <label>ФИО полностью:</label>
+                <input type="text" id="fullName" placeholder="Иванов Иван Иванович">
+                
+                <label>Телефон:</label>
+                <input type="tel" id="phone" placeholder="+7 (___) ___-__-__">
+                
+                <label>Текст заявления:</label>
+                <textarea id="statementText">Я, [ФИО], настоящим отзываю своё согласие на обработку моих персональных данных, данное мною [дата] в фитнес-клубе «Радуга» (г. Санкт-Петербург, ул. Маршала Захарова, 20Д).
+
+Прошу прекратить обработку моих персональных данных и уничтожить их в течение 30 дней с момента получения данного заявления в соответствии с ч. 2 ст. 9 Федерального закона от 27.07.2006 № 152-ФЗ «О персональных данных».
+
+Дата: ____________
+Подпись: ____________</textarea>
+                
+                <button class="btn-download" onclick="copyStatement()">📋 Копировать текст</button>
+            </div>
+            
+            <div class="withdraw-section">
+                <h2>Контакты для отправки:</h2>
+                <p>
+                    <strong>Email:</strong> [указать email]<br>
+                    <strong>Телефон:</strong> +7 (921) 892-51-57<br>
+                    <strong>Адрес:</strong> 198332, г. Санкт-Петербург, ул. Маршала Захарова, 20Д, фитнес-клуб «Радуга»
+                </p>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>Срок рассмотрения:</strong> Заявление будет рассмотрено в течение 30 дней с момента получения. Мы уведомим вас о результатах по указанному телефону.</p>
+            </div>
+            
+            <a href="privacy-policy.html" class="back-link">← К политике конфиденциальности</a>
+        </div>
+    </div>
+    
+    <script>
+        function copyStatement() {
+            const text = document.getElementById('statementText').value;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Текст заявления скопирован в буфер обмена!');
+            }).catch(err => {
+                alert('Ошибка копирования. Выделите текст и скопируйте вручную.');
+            });
+        }
+    </script>
+    
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+        (function(m,e,t,r,i,k,a){
+            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+            m[i].l=1*new Date();
+            for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+            k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+        })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=106970869', 'ym');
+
+        ym(106970869, 'init', {ssr:true, webvisor:true, clickmap:true, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <noscript><div><img src="https://mc.yandex.ru/watch/106970869" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- /Yandex.Metrika counter -->
+</body>
+</html>

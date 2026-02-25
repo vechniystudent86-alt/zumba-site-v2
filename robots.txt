@@ -1,0 +1,11 @@
+# Robots.txt для Zumba Красносельский
+# https://zumba-spb.ru
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://zumba-spb.ru/sitemap.xml
+
+# Хост
+Host: https://zumba-spb.ru

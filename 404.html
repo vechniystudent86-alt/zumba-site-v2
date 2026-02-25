@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Страница не найдена | Zumba Красносельский</title>
+    <meta name="description" content="Страница не найдена. Вернитесь на главную страницу Zumba фитнеса с Александрой Мельниковой.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #FF2D75;
+            --color-secondary: #FFB800;
+            --color-accent: #00D9FF;
+            --color-bg-dark: #0D0D0D;
+            --color-text-primary: #FFFFFF;
+            --color-text-secondary: #B0B0B0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--color-bg-dark);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        .error-container {
+            text-align: center;
+            max-width: 600px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .error-code {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(120px, 20vw, 200px);
+            line-height: 0.8;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .error-title {
+            font-size: clamp(24px, 4vw, 32px);
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--color-text-primary);
+        }
+        
+        .error-message {
+            font-size: clamp(16px, 2vw, 18px);
+            color: var(--color-text-secondary);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        
+        .btn-home {
+            display: inline-block;
+            padding: 16px 40px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(255, 45, 117, 0.4);
+        }
+        
+        .btn-home:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 45, 117, 0.6);
+        }
+        
+        .bg-animation {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .floating-shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 20s infinite ease-in-out;
+        }
+        
+        .shape-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--color-primary);
+            top: -100px;
+            right: -100px;
+        }
+        
+        .shape-2 {
+            width: 300px;
+            height: 300px;
+            background: var(--color-secondary);
+            bottom: 10%;
+            left: -50px;
+            animation-delay: -5s;
+        }
+        
+        .shape-3 {
+            width: 250px;
+            height: 250px;
+            background: var(--color-accent);
+            top: 50%;
+            right: 10%;
+            animation-delay: -10s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, -30px) scale(1.05); }
+        }
+        
+        .emoji {
+            font-size: clamp(60px, 10vw, 100px);
+            margin-bottom: 20px;
+            animation: bounce 1s infinite alternate;
+        }
+        
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animation">
+        <div class="floating-shape shape-1"></div>
+        <div class="floating-shape shape-2"></div>
+        <div class="floating-shape shape-3"></div>
+    </div>
+    
+    <div class="error-container">
+        <div class="emoji">💃</div>
+        <h1 class="error-code">404</h1>
+        <h2 class="error-title">Упс! Страница не найдена</h2>
+        <p class="error-message">
+            Похоже, вы заблудились! Но не переживайте —<br>
+            все лучшие тренировки ждут вас на главной странице!
+        </p>
+        <a href="/" class="btn-home">Вернуться на главную</a>
+    </div>
+    
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+        (function(m,e,t,r,i,k,a){
+            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+            m[i].l=1*new Date();
+            for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+            k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+        })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=106970869', 'ym');
+
+        ym(106970869, 'init', {ssr:true, webvisor:true, clickmap:true, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <noscript><div><img src="https://mc.yandex.ru/watch/106970869" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- /Yandex.Metrika counter -->
+</body>
+</html>

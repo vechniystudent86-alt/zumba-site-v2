@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Нет соединения | Zumba Красносельский</title>
+    <meta name="robots" content="noindex">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #FF2D75;
+            --color-secondary: #FFB800;
+            --color-accent: #00D9FF;
+            --color-bg-dark: #0D0D0D;
+            --color-text-primary: #FFFFFF;
+            --color-text-secondary: #B0B0B0;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--color-bg-dark);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        .offline-container {
+            text-align: center;
+            max-width: 500px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .offline-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite alternate;
+        }
+        
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-20px); }
+        }
+        
+        .offline-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(48px, 10vw, 72px);
+            line-height: 1;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+        }
+        
+        .offline-message {
+            font-size: clamp(16px, 2vw, 18px);
+            color: var(--color-text-secondary);
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .btn-retry {
+            display: inline-block;
+            padding: 16px 40px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(255, 45, 117, 0.4);
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-retry:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 45, 117, 0.6);
+        }
+        
+        .status {
+            margin-top: 20px;
+            font-size: 14px;
+            color: var(--color-text-muted);
+        }
+        
+        .bg-animation {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .floating-shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 20s infinite ease-in-out;
+        }
+        
+        .shape-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--color-primary);
+            top: -100px;
+            right: -100px;
+        }
+        
+        .shape-2 {
+            width: 300px;
+            height: 300px;
+            background: var(--color-secondary);
+            bottom: 10%;
+            left: -50px;
+            animation-delay: -5s;
+        }
+        
+        .shape-3 {
+            width: 250px;
+            height: 250px;
+            background: var(--color-accent);
+            top: 50%;
+            right: 10%;
+            animation-delay: -10s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, -30px) scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animation">
+        <div class="floating-shape shape-1"></div>
+        <div class="floating-shape shape-2"></div>
+        <div class="floating-shape shape-3"></div>
+    </div>
+    
+    <div class="offline-container">
+        <div class="offline-icon">📡</div>
+        <h1 class="offline-title">НЕТ СОЕДИНЕНИЯ</h1>
+        <p class="offline-message">
+            Похоже, у вас нет доступа к интернету.<br>
+            Но вы можете просмотреть сохранённую версию сайта!
+        </p>
+        <button class="btn-retry" onclick="location.reload()">Попробовать снова</button>
+        <p class="status" id="status">Проверка соединения...</p>
+    </div>
+    
+    <script>
+        // Monitor connection status
+        function updateStatus() {
+            const status = document.getElementById('status');
+            if (navigator.onLine) {
+                status.textContent = '✅ Соединение восстановлено! Перезагрузка...';
+                status.style.color = '#4CAF50';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                status.textContent = '❌ Нет соединения. Проверьте интернет.';
+                status.style.color = '#FF5252';
+            }
+        }
+        
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+        updateStatus();
+    </script>
+</body>
+</html>
