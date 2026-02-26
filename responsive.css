@@ -215,30 +215,31 @@
         flex-direction: row;
         flex-wrap: nowrap; /* Запрещаем перенос */
         gap: 10px;
-        align-items: center; /* Центрируем по вертикали */
+        align-items: flex-start; /* Изменено с center на flex-start */
     }
 
     .checkbox-label input[type="checkbox"] {
         width: 20px;
         height: 20px;
         min-width: 20px;
-        margin-top: 0;
+        margin-top: 2px; /* Добавлено отступление сверху */
         flex-shrink: 0; /* Не сжимать */
     }
 
     .checkbox-label span {
-        font-size: 0.85rem;
-        line-height: 1.3;
-        display: flex;
-        flex-wrap: wrap; /* Разрешаем перенос внутри span */
-        gap: 4px;
+        font-size: 0.8rem; /* Уменьшено с 0.85rem */
+        line-height: 1.2; /* Уменьшено с 1.3 */
+        display: inline; /* Изменено с flex на inline */
+        flex-wrap: nowrap; /* Запрещаем перенос внутри */
+        gap: 0;
     }
 
     .checkbox-label a {
-        font-size: 0.85rem;
-        line-height: 1.3;
+        font-size: 0.8rem; /* Уменьшено с 0.85rem */
+        line-height: 1.2; /* Уменьшено с 1.3 */
         text-decoration: underline;
         white-space: nowrap; /* Ссылка без переноса */
+        display: inline; /* Добавлено inline */
     }
 
     /* Schedule mobile */
