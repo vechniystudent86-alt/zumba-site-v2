@@ -139,6 +139,33 @@
     .contact-form {
         padding: 30px 20px;
     }
+
+    /* Schedule mobile */
+    .schedule-info {
+        margin: 20px 0;
+    }
+
+    .schedule-list li {
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 0;
+    }
+
+    .schedule-list li span:first-child {
+        min-width: auto;
+    }
+
+    .schedule-list li span:last-child {
+        text-align: left;
+        width: 100%;
+    }
+
+    /* CTA text mobile */
+    .cta-text {
+        font-size: 0.85rem;
+        padding: 12px 10px;
+        line-height: 1.3;
+    }
 }
 
 @media (max-width: 480px) {
@@ -180,23 +207,65 @@
         font-size: 16px; /* Prevents zoom on iOS */
     }
 
+    .checkbox-group {
+        margin-bottom: 25px;
+    }
+
     .checkbox-label {
         flex-direction: row;
-        flex-wrap: wrap;
-        gap: 8px;
+        flex-wrap: nowrap; /* Запрещаем перенос */
+        gap: 10px;
+        align-items: center; /* Центрируем по вертикали */
     }
 
     .checkbox-label input[type="checkbox"] {
-        width: 24px;
-        height: 24px;
-        min-width: 24px;
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
         margin-top: 0;
+        flex-shrink: 0; /* Не сжимать */
     }
 
-    .checkbox-label span,
+    .checkbox-label span {
+        font-size: 0.85rem;
+        line-height: 1.3;
+        display: flex;
+        flex-wrap: wrap; /* Разрешаем перенос внутри span */
+        gap: 4px;
+    }
+
     .checkbox-label a {
-        font-size: 0.9rem;
-        line-height: 1.4;
+        font-size: 0.85rem;
+        line-height: 1.3;
+        text-decoration: underline;
+        white-space: nowrap; /* Ссылка без переноса */
+    }
+
+    /* Schedule mobile */
+    .schedule-info {
+        margin: 20px 0;
+    }
+
+    .schedule-list li {
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 0;
+    }
+
+    .schedule-list li span:first-child {
+        min-width: auto;
+    }
+
+    .schedule-list li span:last-child {
+        text-align: left;
+        width: 100%;
+    }
+
+    /* CTA text mobile */
+    .cta-text {
+        font-size: 0.85rem;
+        padding: 12px 10px;
+        line-height: 1.3;
     }
 
     .image-container {
