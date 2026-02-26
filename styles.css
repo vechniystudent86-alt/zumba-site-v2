@@ -1605,7 +1605,7 @@ section[id] {
     font-size: 0.95rem;
     color: var(--color-text-secondary);
     line-height: 1.5;
-    pointer-events: auto;
+    position: relative;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -1624,8 +1624,7 @@ section[id] {
     flex-shrink: 0;
     position: relative;
     transition: all var(--transition-fast);
-    z-index: 1;
-    pointer-events: auto;
+    z-index: 2;
 }
 
 .checkbox-label input[type="checkbox"]:hover {
@@ -1659,12 +1658,14 @@ section[id] {
 .checkbox-label span {
     line-height: 1.5;
     user-select: none;
+    pointer-events: none;
 }
 
 .checkbox-label a {
     color: var(--color-primary);
     text-decoration: underline;
     transition: color var(--transition-fast);
+    pointer-events: auto;
 }
 
 .checkbox-label a:hover {
