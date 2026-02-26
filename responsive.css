@@ -128,10 +128,6 @@
         grid-template-columns: 1fr;
     }
 
-    .reviews-slider {
-        grid-template-columns: 1fr;
-    }
-
     .stats {
         gap: 20px;
     }

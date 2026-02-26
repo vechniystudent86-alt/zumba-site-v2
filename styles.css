@@ -108,6 +108,7 @@ img {
     max-width: var(--container-width);
     margin: 0 auto;
     padding: 0 20px;
+    width: 100%;
 }
 
 /* Visually Hidden - для SEO */
@@ -694,6 +695,7 @@ section[id] {
     grid-template-columns: 1fr 1fr;
     gap: 80px;
     align-items: center;
+    align-content: center;
 }
 
 .about-image .image-card {
@@ -811,6 +813,7 @@ section[id] {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 30px;
+    align-items: stretch;
 }
 
 .program-card {
@@ -953,6 +956,8 @@ section[id] {
     padding: 30px;
     transition: all var(--transition-medium);
     box-shadow: var(--elevation-2);
+    position: relative;
+    z-index: 1;
 }
 
 .review-card:hover {
@@ -1036,6 +1041,8 @@ section[id] {
     align-items: center;
     gap: 20px;
     margin-top: 40px;
+    position: relative;
+    z-index: 10;
 }
 
 .slider-btn {
@@ -1050,6 +1057,8 @@ section[id] {
     align-items: center;
     justify-content: center;
     color: var(--color-primary);
+    z-index: 10;
+    pointer-events: auto;
 }
 
 .slider-btn:hover {
@@ -1069,6 +1078,8 @@ section[id] {
     justify-content: center;
     gap: 12px;
     margin-top: 20px;
+    position: relative;
+    z-index: 10;
 }
 
 .slider-dots button {
@@ -1369,6 +1380,7 @@ section[id] {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 60px;
+    align-items: start;
 }
 
 .contact-info {
@@ -1603,6 +1615,8 @@ section[id] {
     flex-shrink: 0;
     position: relative;
     transition: all var(--transition-fast);
+    z-index: 1;
+    pointer-events: auto;
 }
 
 .checkbox-label input[type="checkbox"]:hover {
