@@ -1666,6 +1666,7 @@ section[id] {
     text-decoration: underline;
     transition: color var(--transition-fast);
     pointer-events: auto;
+    line-height: 1.5;
 }
 
 .checkbox-label a:hover {
