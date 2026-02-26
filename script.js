@@ -303,119 +303,90 @@ const TiltEffect = {
 
 /**
  * Contact Form Module
+ * Отправляет данные через серверный PHP-обработчик (send-form.php)
  */
 const ContactForm = {
     form: null,
-    telegramBotToken: '8544616219:AAFiKfXks86HrqVbvuk77NvSARnBLlrHmaQ',
-    telegramChatId: '293171586',
+    submitUrl: 'send-form.php',
 
     init() {
         this.form = document.getElementById('contactForm');
-        this.addSubmitListener();
+        if (this.form) {
+            this.addSubmitListener();
+        }
     },
 
     addSubmitListener() {
         this.form.addEventListener('submit', (e) => {
             e.preventDefault();
-
-            // Clear previous messages
-            this.clearMessages();
-
-            // Get form values
-            const formData = new FormData(this.form);
-            const data = Object.fromEntries(formData);
-
-            // Simple validation
-            if (!this.validateForm(data)) {
-                return;
-            }
-
-            // Send to Telegram
-            this.sendToTelegram(data);
+            this.handleSubmit();
         });
     },
 
-    async sendToTelegram(data) {
+    async handleSubmit() {
         const submitBtn = this.form.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
+        
+        // Clear previous messages
+        this.clearMessages();
+        
+        // Get form values
+        const formData = new FormData(this.form);
+        const data = Object.fromEntries(formData);
+
+        // Client-side validation
+        if (!this.validateForm(data)) {
+            return;
+        }
+
+        // Disable button and show loading state
         submitBtn.disabled = true;
         submitBtn.innerHTML = '⏳ Отправка...';
 
-        // Format message for Telegram (MarkdownV2)
-        const message = `
-🔔 *Новая заявка на тренировку!*
-
-👤 *Имя:* ${this.escapeMarkdown(data.name)}
-📱 *Телефон:* ${this.escapeMarkdown(data.phone)}
-💃 *Программа:* ${this.getProgramName(data.program)}
-💬 *Сообщение:* ${data.message ? this.escapeMarkdown(data.message) : 'Нет сообщения'}
-
-🌐 Сайт: zumba-spb.ru
-📅 ${new Date().toLocaleString('ru-RU')}
-        `.trim();
-
         try {
-            const response = await fetch(
-                `https://api.telegram.org/bot${this.telegramBotToken}/sendMessage`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: this.telegramChatId,
-                        text: message,
-                        parse_mode: 'Markdown',
-                        link_preview_options: { is_disabled: true }
-                    })
-                }
-            );
+            const response = await fetch(this.submitUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams(data).toString()
+            });
 
             const result = await response.json();
 
-            if (result.ok) {
+            if (response.ok && result.success) {
                 // Отправка цели в Яндекс.Метрику
                 if (typeof ym !== 'undefined') {
                     ym(106970869, 'reachGoal', 'form_submit');
                 }
-                
                 this.showSuccessMessage();
                 this.form.reset();
             } else {
-                throw new Error('Ошибка Telegram API');
+                throw new Error(result.error || 'Ошибка отправки');
             }
         } catch (error) {
             console.error('Ошибка отправки:', error);
-            this.showInlineError('Ошибка отправки. Позвоните нам!');
+            this.showInlineError(error.message || 'Ошибка отправки. Позвоните нам!');
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         }
     },
 
-    escapeMarkdown(text) {
-        // Экранирование специальных символов Markdown
-        return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-    },
-
-    getProgramName(program) {
-        const programs = {
-            'classic': 'Zumba Classic',
-            'toning': 'Zumba Toning',
-            'gold': 'Zumba Gold',
-            'aqua': 'Aqua Zumba'
-        };
-        return programs[program] || program;
-    },
-    
     validateForm(data) {
         let isValid = true;
 
-        if (!data.name || data.name.trim().length < 2) {
-            this.showInlineError('Пожалуйста, введите корректное имя');
+        if (!data.name || data.name.trim().length < 2 || data.name.trim().length > 50) {
+            this.showInlineError('Пожалуйста, введите корректное имя (2-50 символов)');
             isValid = false;
         }
 
-        if (!data.phone || data.phone.trim().length < 10) {
-            this.showInlineError('Пожалуйста, введите корректный номер телефона');
+        // Валидация телефона - российский формат
+        const phoneClean = data.phone.replace(/[^\d+]/g, '');
+        const phoneValid = /^(\+7|8)\d{10}$/.test(phoneClean);
+        if (!data.phone || !phoneValid) {
+            this.showInlineError('Введите корректный номер телефона (например, +7 999 123-45-67)');
             isValid = false;
         }
 
@@ -428,7 +399,7 @@ const ContactForm = {
 
         return isValid;
     },
-    
+
     showSuccessMessage() {
         const successMsg = document.createElement('div');
         successMsg.className = 'form-message success';
@@ -448,7 +419,6 @@ const ContactForm = {
     },
 
     showInlineError(message) {
-        // Create or get message container
         let messageEl = this.form.querySelector('.form-message');
         if (!messageEl) {
             messageEl = document.createElement('div');
@@ -458,8 +428,6 @@ const ContactForm = {
 
         messageEl.className = 'form-message error';
         messageEl.textContent = message;
-
-        // Scroll to message
         messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
@@ -468,8 +436,6 @@ const ContactForm = {
         if (messageEl) {
             messageEl.remove();
         }
-
-        // Clear error states from form groups
         this.form.querySelectorAll('.form-group.error').forEach(group => {
             group.classList.remove('error');
         });

@@ -1,40 +1,82 @@
 @echo off
 chcp 65001 >nul
-echo ========================================
-echo   Деплой сайта на сервер (Beget)
-echo   zumba-spb.ru
-echo ========================================
+REM Автоматический деплой на сервер с минификацией
+REM Zumba Site v2.0
+
+echo ============================================
+echo   Zumba Site - Деплой на сервер
+echo ============================================
 echo.
 
-set PLINK=C:\Users\lord0\plink.exe
-set PSCP=C:\Users\lord0\pscp.exe
-set HOST=85.198.64.110
-set USER=root
-set PASS=Z*5k53vll2oQ
-set HOSTKEY=ssh-ed25519 255 SHA256:+OBwjHWvUplcWSE6bzIbvVBxpMunKkN+deYBN1S3G6Y
-set LOCAL_DIR=C:\Users\lord0\OneDrive\Desktop\Python\Sanika\zumba-site
-set REMOTE_DIR=/root/zumba-site
-set WEB_DIR=/var/www/zumba-site
+REM Проверка Node.js
+where node >nul 2>nul
+if %ERRORLEVEL% neq 0 (
+    echo [ОШИБКА] Node.js не найден!
+    echo Установите Node.js или выполните: npm install
+    pause
+    exit /b 1
+)
 
-echo [1/3] Копирование файлов на сервер...
-%PSCP% -pw "%PASS%" -hostkey "%HOSTKEY%" "%LOCAL_DIR%\index.html" "%USER%@%HOST%:%REMOTE_DIR%/"
-%PSCP% -pw "%PASS%" -hostkey "%HOSTKEY%" "%LOCAL_DIR%\styles.css" "%USER%@%HOST%:%REMOTE_DIR%/"
-%PSCP% -pw "%PASS%" -hostkey "%HOSTKEY%" "%LOCAL_DIR%\responsive.css" "%USER%@%HOST%:%REMOTE_DIR%/"
-%PSCP% -pw "%PASS%" -hostkey "%HOSTKEY%" "%LOCAL_DIR%\script.js" "%USER%@%HOST%:%REMOTE_DIR%/"
-%PSCP% -pw "%PASS%" -hostkey "%HOSTKEY%" "%LOCAL_DIR%\hero-photo.png" "%USER%@%HOST%:%REMOTE_DIR%/"
+REM Проверка зависимостей
+if not exist "node_modules" (
+    echo [INFO] Установка зависимостей...
+    call npm install
+    if %ERRORLEVEL% neq 0 (
+        echo [ОШИБКА] Ошибка установки зависимостей
+        pause
+        exit /b 1
+    )
+)
+
+REM Минификация
+echo.
+echo [INFO] Минификация CSS и JS...
+call npm run build
+if %ERRORLEVEL% neq 0 (
+    echo [ОШИБКА] Ошибка минификации
+    pause
+    exit /b 1
+)
 
 echo.
-echo [2/3] Применение изменений в веб-директорию...
-%PLINK% -ssh -P 22 -batch -hostkey "%HOSTKEY%" %USER%@%HOST% -pw "%PASS%" "cp -r %REMOTE_DIR%/* %WEB_DIR%/"
+echo [INFO] Проверка Git...
+git status >nul 2>nul
+if %ERRORLEVEL% neq 0 (
+    echo [ОШИБКА] Это не Git репозиторий
+    pause
+    exit /b 1
+)
+
+REM Коммит и пуш
+echo.
+set /p COMMIT_MSG="Введите сообщение для коммита (или нажмите Enter для пропуска): "
+if not "%COMMIT_MSG%"=="" (
+    echo [INFO] Добавление файлов...
+    git add .
+    
+    echo [INFO] Коммит изменений...
+    git commit -m "%COMMIT_MSG%"
+    
+    echo [INFO] Отправка на сервер...
+    git push
+    
+    if %ERRORLEVEL% neq 0 (
+        echo [ОШИБКА] Ошибка отправки в Git
+        pause
+        exit /b 1
+    )
+)
 
 echo.
-echo [3/3] Перезагрузка nginx...
-%PLINK% -ssh -P 22 -batch -hostkey "%HOSTKEY%" %USER%@%HOST% -pw "%PASS%" "systemctl reload nginx"
-
+echo ============================================
+echo   Деплой завершён!
+echo ============================================
 echo.
-echo ========================================
-echo   Деплой завершён успешно!
-echo   Сайт: https://zumba-spb.ru
-echo ========================================
+echo Следующие шаги:
+echo 1. Подключитесь к серверу: ssh root@85.198.64.110
+echo 2. Обновите файлы: cd ~/zumba-site ^&^& git pull
+echo 3. Скопируйте: cp -r ~/zumba-site/* /var/www/zumba-site/
+echo.
+echo Или выполните команду deploy-remote.bat для авто-деплоя
 echo.
 pause

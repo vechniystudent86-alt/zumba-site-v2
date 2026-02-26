@@ -1,0 +1,27 @@
+{
+  "name": "zumba-site",
+  "version": "2.0.0",
+  "description": "Zumba fitness website for Alexandra Melnikova",
+  "author": "Zumba SPb",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "build": "npm run build:css && npm run build:js",
+    "build:css": "cleancss --output styles.min.css styles.css && cleancss --output responsive.min.css responsive.css",
+    "build:js": "terser script.js --output script.min.js --compress booleans=true,dead_code=true,ecma=2020,evaluate=true,if_return=true,loops=true,properties=true,reduce_vars=true,toplevel=true,unused=true --mangle toplevel=true --format comments=false --toplevel",
+    "watch": "npm-run-all --parallel watch:*",
+    "watch:css": "chokidar \"*.css\" -c \"npm run build:css\"",
+    "watch:js": "chokidar \"script.js\" -c \"npm run build:js\"",
+    "minify": "npm run build",
+    "deploy": "git add . && git commit -m \"Build: minify assets\" && git push"
+  },
+  "devDependencies": {
+    "terser": "^5.31.0",
+    "clean-css-cli": "^5.6.3",
+    "chokidar-cli": "^3.0.0",
+    "npm-run-all": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
