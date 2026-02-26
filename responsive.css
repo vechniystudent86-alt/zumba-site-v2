@@ -169,6 +169,36 @@
         font-size: 0.85rem;
     }
 
+    /* Contact form mobile improvements */
+    .contact-form {
+        padding: 30px 20px;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    .checkbox-label {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        margin-top: 0;
+    }
+
+    .checkbox-label span,
+    .checkbox-label a {
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
     .image-container {
         width: 240px;
         height: 240px;
