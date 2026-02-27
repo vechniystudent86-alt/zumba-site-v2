@@ -80,7 +80,7 @@
         "telephone": "+79218925157",
         "address": {
             "@type": "PostalAddress",
-            "streetAddress": "ул. Маршала Захарова, 20Д (клуб Радуга)",
+            "streetAddress": "ул. Маршала Захарова, 20Д",
             "addressLocality": "Санкт-Петербург",
             "addressRegion": "Санкт-Петербург",
             "postalCode": "198332",
@@ -126,14 +126,14 @@
         "@type": "Person",
         "name": "Александра Мельникова",
         "jobTitle": "Инструктор Zumba",
-        "description": "Профессиональный инструктор Zumba в Красносельском районе Санкт-Петербурга. Чемпионка Москвы по латиноамериканским танцам.",
+        "description": "Сертифицированный инструктор Zumba и Zumba Gold (LDFA) в Красносельском районе Санкт-Петербурга. Педагог-хореограф с высшим образованием.",
         "url": "https://zumba-spb.ru",
         "image": "https://zumba-spb.ru/hero-photo.png",
         "sameAs": [
             "https://t.me/ZumbaYugozapadSPB",
             "https://vk.ru/radugaclub20"
         ],
-        "knowsAbout": ["Zumba", "Фитнес", "Танцы", "Латиноамериканские танцы"],
+        "knowsAbout": ["Zumba", "Zumba Gold", "Фитнес", "Танцы", "Хореография"],
         "hasOccupation": {
             "@type": "Occupation",
             "name": "Инструктор Zumba",
@@ -141,6 +141,14 @@
                 "@type": "City",
                 "name": "Санкт-Петербург"
             }
+        },
+        "alumniOf": {
+            "@type": "EducationalOrganization",
+            "description": "Высшее педагогическое образование — педагог-хореограф, руководитель хореографического коллектива"
+        },
+        "hasCredential": {
+            "@type": "EducationalOccupationalCredential",
+            "description": "Сертифицированный инструктор компании LDFA программы Zumba и Zumba Gold"
         }
     }
     </script>
@@ -228,18 +236,18 @@
         "mainEntity": [
             {
                 "@type": "Question",
-                "name": "Что взять с собой на первую тренировку?",
+                "name": "Что взять с собой на тренировку?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Вам понадобится удобная спортивная одежда, обувь для фитнеса (кроссовки с нескользкой подошвой), полотенце и бутылка воды. Рекомендуется прийти за 10-15 минут до начала, чтобы заполнить анкету."
+                    "text": "Возьмите с собой удобную форму, сменные кроссовки, бутылку негазированной воды. Приходите за 7-10 мин до начала тренировки, чтобы успеть переодеться."
                 }
             },
             {
                 "@type": "Question",
-                "name": "Нужна ли подготовка для занятий Zumba?",
+                "name": "Нужна ли подготовка для занятий зумба?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Нет, подготовка не нужна! Я Веду занятия для разных уровней — от начинающих до продвинутых. На тренировках для новичков (Zumba Gold) показываю все движения поэтапно."
+                    "text": "Подготовка не нужна. На занятия приходят люди с разным уровнем подготовки, иногда и вовсе без нее. Главное — желание, а я вам помогу."
                 }
             },
             {
@@ -247,7 +255,7 @@
                 "name": "Сколько калорий сжигается за тренировку?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "За одно часовое занятие Zumba Classic сжигается от 500 до 700 ккал. Zumba Toning — до 800 ккал благодаря силовым элементам."
+                    "text": "За одну тренировку зумба сжигается до 500 калорий."
                 }
             },
             {
@@ -271,7 +279,7 @@
                 "name": "Есть ли абонементы?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Да, в клубе Радуга действуют абонементы на 4, 8 и 12 занятий. Стоимость разового посещения — 800₽. При покупке абонемента на 8 занятий — одно в подарок!"
+                    "text": "Да, действуют абонементы: 8 занятий — 4800₽, 6 занятий — 3900₽, 4 занятия — 2800₽. Разовое посещение — 750₽. Пробная тренировка — 500₽."
                 }
             }
         ]
@@ -290,8 +298,7 @@
     <nav class="navbar">
         <div class="nav-container">
             <a href="#" class="logo">
-                <span class="logo-text">AM</span>
-                <span class="logo-subtitle">ZUMBA FIT</span>
+                <img src="logo.png" alt="AM ZUMBA FIT" class="logo-image" width="180" height="90">
             </a>
             <ul class="nav-menu">
                 <li><a href="#home">Главная</a></li>
@@ -318,8 +325,6 @@
             <div class="floating-shape shape-3"></div>
             <div class="floating-shape shape-4"></div>
         </div>
-        <!-- Скрытый H1 для SEO -->
-        <h1 class="visually-hidden">Zumba фитнес в Санкт-Петербурге с Александрой Мельниковой — групповые тренировки в Красносельском районе</h1>
         <div class="hero-content">
             <div class="hero-text">
                 <h1 class="hero-title">
@@ -369,20 +374,22 @@
                 <div class="about-text">
                     <h3>Всем привет! ✋👋</h3>
                     <p>Рада, что заглянули ко мне! Меня зовут Александра Мельникова, и я сертифицированный инструктор танцевальных тренировок Zumba в Красносельском районе Санкт-Петербурга!</p>
-                    <p>Я начала свой путь в мире танцев ещё в детстве, занимаясь латиноамериканскими танцами. Сегодня я объединила свою любовь к танцам и фитнесу, чтобы помочь тысячам людей обрести уверенность в себе и наслаждаться движением.</p>
+                    <p><strong>Образование:</strong> высшее педагогическое — педагог-хореограф, руководитель хореографического коллектива.</p>
+                    <p>Сертифицированный инструктор компании LDFA программы Zumba и Zumba Gold.</p>
+                    <p>Регулярно прохожу обучения, повышаю свои профессиональные навыки.</p>
                     <p>Каждая моя тренировка — это праздник энергии, где вы не просто сжигаете калории, а заряжаетесь позитивом, встречаете новых друзей и влюбляетесь в танец заново.</p>
                     <div class="achievements">
                         <div class="achievement-item">
-                            <span class="achievement-icon">🏆</span>
-                            <span>Чемпионка Москвы по латиноамериканским танцам</span>
+                            <span class="achievement-icon">🎓</span>
+                            <span>Педагог-хореограф, руководитель хореографического коллектива</span>
                         </div>
                         <div class="achievement-item">
                             <span class="achievement-icon">⭐</span>
-                            <span>Официальный инструктор Zumba® Gold</span>
+                            <span>Сертифицированный инструктор LDFA (Zumba и Zumba Gold)</span>
                         </div>
                         <div class="achievement-item">
                             <span class="achievement-icon">💃</span>
-                            <span>Более 5000 проведённых тренировок</span>
+                            <span>Регулярно повышаю профессиональные навыки</span>
                         </div>
                     </div>
                     <div class="stats">
@@ -428,22 +435,6 @@
                     </ul>
                     <a href="#contact" class="card-link">Записаться →</a>
                 </div>
-                <div class="program-card featured" data-tilt>
-                    <div class="featured-badge">Популярное</div>
-                    <div class="card-icon">
-                        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M32 8 L38 24 L56 24 L42 36 L48 54 L32 44 L16 54 L22 36 L8 24 L26 24 Z" stroke="currentColor" stroke-width="2" fill="none"/>
-                        </svg>
-                    </div>
-                    <h3>Zumba Toning</h3>
-                    <p>Силовая тренировка с элементами Zumba. Используйте легкие гантели для максимального эффекта.</p>
-                    <ul class="program-features">
-                        <li>75 минут</li>
-                        <li>Высокая интенсивность</li>
-                        <li>До 800 ккал</li>
-                    </ul>
-                    <a href="#contact" class="card-link">Записаться →</a>
-                </div>
                 <div class="program-card" data-tilt>
                     <div class="card-icon">
                         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -457,22 +448,6 @@
                         <li>45 минут</li>
                         <li>Низкая интенсивность</li>
                         <li>До 350 ккал</li>
-                    </ul>
-                    <a href="#contact" class="card-link">Записаться →</a>
-                </div>
-                <div class="program-card" data-tilt>
-                    <div class="card-icon">
-                        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M16 48 Q32 8 48 48" stroke="currentColor" stroke-width="3" fill="none"/>
-                            <circle cx="32" cy="28" r="8" stroke="currentColor" stroke-width="2" fill="none"/>
-                        </svg>
-                    </div>
-                    <h3>Aqua Zumba</h3>
-                    <p>Тренировка в воде — уникальное сочетание кардио и сопротивления воды для максимального тонуса.</p>
-                    <ul class="program-features">
-                        <li>50 минут</li>
-                        <li>Средняя интенсивность</li>
-                        <li>До 500 ккал</li>
                     </ul>
                     <a href="#contact" class="card-link">Записаться →</a>
                 </div>
@@ -638,20 +613,25 @@
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                                 <circle cx="12" cy="10" r="3"/>
                             </svg>
-                            <span>Санкт-Петербург, ул. Маршала Захарова, 20Д (клуб "🌈Радуга🌈")</span>
+                            <span>Санкт-Петербург, ул. Маршала Захарова, 20Д (Зумба у залива)</span>
                         </div>
                     </div>
                     <div class="schedule-info">
-                        <h4>Актуальное расписание:</h4>
+                        <h4>Абонементы:</h4>
                         <ul class="schedule-list">
-                            <li><span>Понедельник</span> <span>19:45 - Zumba Classic</span></li>
-                            <li><span>Среда</span> <span>20:00 - Zumba Classic</span></li>
-                            <li><span>Пятница</span> <span>10:30 - Zumba Classic</span></li>
+                            <li><span>8 занятий</span> <span>4800₽</span></li>
+                            <li><span>6 занятий</span> <span>3900₽</span></li>
+                            <li><span>4 занятия</span> <span>2800₽</span></li>
+                            <li><span>Разовое посещение</span> <span>750₽</span></li>
+                            <li><span>Пробная тренировка</span> <span>500₽</span></li>
                         </ul>
-                        <div class="price-info">
-                            <p><strong>Стоимость пробной тренировки:</strong> 500₽</p>
-                            <p><strong>Длительность занятия:</strong> 55 минут</p>
-                        </div>
+                        <h4>Расписание:</h4>
+                        <ul class="schedule-list">
+                            <li><span>Пн</span> <span>19:45 - Zumba fitness</span></li>
+                            <li><span>Ср</span> <span>20:00 - Zumba fitness</span></li>
+                            <li><span>Пт</span> <span>10:30 - Zumba fitness</span></li>
+                            <li><span>Вс</span> <span>12:00 - Zumba Gold</span></li>
+                        </ul>
                         <p class="cta-text">Не откладывай жизнь на завтра! Запишись на пробную тренировку!</p>
                     </div>
                     <div class="social-links">
@@ -668,7 +648,8 @@
                         </a>
                     </div>
                 </div>
-                <form class="contact-form" id="contactForm">
+                <form class="contact-form" id="contactForm" aria-label="Форма записи на тренировку">
+                    <input type="hidden" name="csrf_token" id="csrf_token" value="">
                     <div class="form-group">
                         <input type="text" id="name" name="name" required placeholder=" ">
                         <label for="name">Ваше имя</label>
@@ -681,9 +662,7 @@
                         <select id="program" name="program" required>
                             <option value="" disabled selected>Выберите программу</option>
                             <option value="classic">Zumba Classic</option>
-                            <option value="toning">Zumba Toning</option>
                             <option value="gold">Zumba Gold</option>
-                            <option value="aqua">Aqua Zumba</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -729,7 +708,7 @@
                 </div>
                 <div class="location-info">
                     <div class="location-card">
-                        <h3>📍 Фитнес-клуб "Радуга"</h3>
+                        <h3>📍 Зумба у залива</h3>
                         <p class="address">Санкт-Петербург, ул. Маршала Захарова, 20Д</p>
                         <div class="location-details">
                             <div class="detail-item">
@@ -745,7 +724,7 @@
                                 <span>Вход со двора, 2 этаж</span>
                             </div>
                         </div>
-                        <a href="https://yandex.ru/maps/-/CDu~kRJV" target="_blank" rel="noopener" class="btn btn-primary">
+                        <a href="https://yandex.ru/maps/org/zumba_u_zaliva/99077668985?si=0pxbzfcp104m4ggn3bjbnyrv3m" target="_blank" rel="noopener" class="btn btn-primary">
                             Построить маршрут
                         </a>
                     </div>
@@ -764,20 +743,20 @@
             <div class="faq-container">
                 <div class="faq-item">
                     <button class="faq-question" aria-expanded="false">
-                        <span>Что взять с собой на первую тренировку?</span>
+                        <span>Что взять с собой на тренировку?</span>
                         <span class="faq-icon">+</span>
                     </button>
                     <div class="faq-answer">
-                        <p>Вам понадобится удобная спортивная одежда, обувь для фитнеса (кроссовки с нескользкой подошвой), полотенце и бутылка воды. Рекомендуется прийти за 10-15 минут до начала, чтобы заполнить анкету.</p>
+                        <p>Возьмите с собой удобную форму, сменные кроссовки, бутылку негазированной воды. Приходите за 7-10 мин до начала тренировки, чтобы успеть переодеться.</p>
                     </div>
                 </div>
                 <div class="faq-item">
                     <button class="faq-question" aria-expanded="false">
-                        <span>Нужна ли подготовка для занятий Zumba?</span>
+                        <span>Нужна ли подготовка для занятий зумба?</span>
                         <span class="faq-icon">+</span>
                     </button>
                     <div class="faq-answer">
-                        <p>Нет, подготовка не нужна! Я Веду занятия для разных уровней — от начинающих до продвинутых. На тренировках для новичков (Zumba Gold) показываю все движения поэтапно. Главное — желание двигаться и получать удовольствие!</p>
+                        <p>Подготовка не нужна. На занятия приходят люди с разным уровнем подготовки, иногда и вовсе без нее. Главное — желание, а я вам помогу.</p>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -786,7 +765,7 @@
                         <span class="faq-icon">+</span>
                     </button>
                     <div class="faq-answer">
-                        <p>За одно часовое занятие Zumba Classic сжигается от 500 до 700 ккал в зависимости от интенсивности и вашего веса. Zumba Toning — до 800 ккал благодаря силовым элементам.</p>
+                        <p>За одну тренировку зумба сжигается до 500 калорий.</p>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -813,7 +792,7 @@
                         <span class="faq-icon">+</span>
                     </button>
                     <div class="faq-answer">
-                        <p>Да, в клубе "Радуга" действуют абонементы на 4, 8 и 12 занятий. Стоимость разового посещения — 800₽. При покупке абонемента на 8 занятий — одно в подарок!</p>
+                        <p>Да, действуют абонементы: 8 занятий — 4800₽, 6 занятий — 3900₽, 4 занятия — 2800₽. Разовое посещение — 750₽. Пробная тренировка — 500₽.</p>
                     </div>
                 </div>
             </div>
@@ -825,8 +804,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-logo">
-                    <span class="logo-text">AM</span>
-                    <span class="logo-subtitle">ZUMBA FIT</span>
+                    <img src="logo.png" alt="AM ZUMBA FIT" class="logo-image" width="150" height="75">
                 </div>
                 <p>© 2024 Александра Мельникова | Zumba Красносельский, Санкт-Петербург</p>
                 <p class="footer-links">
@@ -855,7 +833,15 @@
 
     <!-- Yandex Maps API -->
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
-    
+
+    <style>
+        /* Тёмная тема для Яндекс Карты (API v2.1) */
+        #yandex-map .ymaps-2-1-79-ground-pane,
+        #yandex-map .ymaps2179-ground-pane {
+            filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(90%);
+        }
+    </style>
+
     <script src="script.min.js"></script>
     
     <script>
@@ -874,15 +860,15 @@
                 
                 try {
                     const map = new ymaps.Map('yandex-map', {
-                        center: [59.837058, 30.242849],
+                        center: [59.858046, 30.179368],
                         zoom: 16,
                         controls: ['zoomControl', 'fullscreenControl']
                     });
 
-                    const myPlacemark = new ymaps.Placemark([59.837058, 30.242849], {
-                        hintContent: 'Фитнес-клуб Радуга',
+                    const myPlacemark = new ymaps.Placemark([59.858046, 30.179368], {
+                        hintContent: 'Зумба у залива',
                         balloonContentHeader: 'Zumba с Александрой Мельниковой',
-                        balloonContentBody: '<div style="padding: 10px;"><strong>🌈 Фитнес-клуб "Радуга"</strong><br>📍 ул. Маршала Захарова, 20Д<br>📞 +7 (921) 892-51-57<br><br>💃 Групповые тренировки Zumba</div>',
+                        balloonContentBody: '<div style="padding: 10px;"><strong>📍 Зумба у залива</strong><br>📍 ул. Маршала Захарова, 20Д<br>📞 +7 (921) 892-51-57<br><br>💃 Групповые тренировки Zumba</div>',
                         balloonContentFooter: 'Пробная тренировка — 500₽'
                     }, {
                         preset: 'islands#pinkFitnessIcon'

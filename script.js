@@ -74,9 +74,15 @@ const CustomCursor = {
         const now = Date.now();
         // Limit heart creation rate
         if (now - this.lastHeartTime < 100) return;
-        
+
         this.lastHeartTime = now;
-        
+
+        // Ограничиваем максимальное количество сердечек в DOM
+        if (this.heartsContainer && this.heartsContainer.children.length > 50) {
+            const oldest = this.heartsContainer.firstElementChild;
+            if (oldest) oldest.remove();
+        }
+
         const heart = document.createElement('div');
         heart.className = 'heart-particle';
         heart.innerHTML = '❤';
@@ -84,9 +90,11 @@ const CustomCursor = {
         heart.style.top = (y + (Math.random() - 0.5) * 40) + 'px';
         heart.style.fontSize = (12 + Math.random() * 16) + 'px';
         heart.style.color = this.getRandomHeartColor();
-        
-        this.heartsContainer.appendChild(heart);
-        
+
+        if (this.heartsContainer) {
+            this.heartsContainer.appendChild(heart);
+        }
+
         // Remove heart after animation
         setTimeout(() => {
             heart.remove();
@@ -308,11 +316,21 @@ const TiltEffect = {
 const ContactForm = {
     form: null,
     submitUrl: 'send-form.php',
+    csrfToken: null,
 
     init() {
         this.form = document.getElementById('contactForm');
         if (this.form) {
+            this.loadCsrfToken();
             this.addSubmitListener();
+        }
+    },
+
+    loadCsrfToken() {
+        // Получаем токен из скрытого поля (если сервер уже добавил его)
+        const csrfInput = document.getElementById('csrf_token');
+        if (csrfInput && csrfInput.value) {
+            this.csrfToken = csrfInput.value;
         }
     },
 
@@ -325,11 +343,18 @@ const ContactForm = {
 
     async handleSubmit() {
         const submitBtn = this.form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
         
+        // Проверка на существование кнопки
+        if (!submitBtn) {
+            this.showInlineError('Ошибка формы. Попробуйте обновить страницу.');
+            return;
+        }
+        
+        const originalText = submitBtn.innerHTML;
+
         // Clear previous messages
         this.clearMessages();
-        
+
         // Get form values
         const formData = new FormData(this.form);
         const data = Object.fromEntries(formData);
@@ -338,6 +363,13 @@ const ContactForm = {
         if (!this.validateForm(data)) {
             return;
         }
+
+        // Добавляем CSRF токен
+        if (!this.csrfToken) {
+            this.showInlineError('Ошибка безопасности. Обновите страницу и попробуйте снова.');
+            return;
+        }
+        data.csrf_token = this.csrfToken;
 
         // Disable button and show loading state
         submitBtn.disabled = true;
@@ -360,13 +392,18 @@ const ContactForm = {
                 if (typeof ym !== 'undefined') {
                     ym(106970869, 'reachGoal', 'form_submit');
                 }
+                // Обновляем CSRF токен для следующей отправки
+                if (result.csrf_token) {
+                    this.csrfToken = result.csrf_token;
+                    const csrfInput = document.getElementById('csrf_token');
+                    if (csrfInput) csrfInput.value = result.csrf_token;
+                }
                 this.showSuccessMessage();
                 this.form.reset();
             } else {
                 throw new Error(result.error || 'Ошибка отправки');
             }
         } catch (error) {
-            console.error('Ошибка отправки:', error);
             this.showInlineError(error.message || 'Ошибка отправки. Позвоните нам!');
         } finally {
             submitBtn.disabled = false;
@@ -507,18 +544,21 @@ const ReviewsSlider = {
         this.nextBtn = document.querySelector('.slider-next');
         this.totalSlides = this.cards.length;
 
-        console.log('ReviewsSlider init:', this.totalSlides, 'cards found');
-
         if (this.totalSlides === 0) {
-            console.error('No review cards found!');
             return;
         }
 
+        // Сначала определяем видимые слайды
         this.updateVisibleSlides();
+        // Затем создаём точки
         this.createDots();
+        // Добавляем обработчики
         this.addEventListeners();
+        // Добавляем resize listener
         this.addResizeListener();
+        // Запускаем автоплей
         this.startAutoPlay();
+        // Обновляем слайдер в конце
         this.updateSlider();
     },
 
@@ -640,8 +680,6 @@ const ReviewsSlider = {
 
         this.track.style.transform = `translateX(-${offset}px)`;
         this.updateDots();
-        
-        console.log('Slider updated: index=' + this.currentIndex + ', cardWidth=' + cardWidth + ', offset=' + offset + 'px');
     },
 
     goToSlide(index) {

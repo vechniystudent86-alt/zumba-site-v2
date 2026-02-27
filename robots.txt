@@ -6,6 +6,3 @@ Allow: /
 
 # Sitemap
 Sitemap: https://zumba-spb.ru/sitemap.xml
-
-# Хост
-Host: https://zumba-spb.ru

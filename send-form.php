@@ -2,18 +2,22 @@
 /**
  * Обработчик форм заявки на тренировку
  * Отправляет данные в Telegram бот
- * 
+ *
  * @author Zumba SPb
- * @version 1.0
+ * @version 2.0
  */
 
-// Отключаем отображение ошибок для продакшена
-error_reporting(0);
+// Включаем логирование ошибок (ошибки не отображаются, но записываются в лог)
+error_reporting(E_ALL);
 ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', '/var/log/php/form_errors.log');
 
 // Устанавливаем заголовки
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
 
 // Разрешаем только POST запросы
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -22,9 +26,25 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// Конфигурация (вынести в .env в продакшене!)
-define('TELEGRAM_BOT_TOKEN', '8544616219:AAFiKfXks86HrqVbvuk77NvSARnBLlrHmaQ');
-define('TELEGRAM_CHAT_ID', '293171586');
+// Конфигурация (в продакшене использовать .env файл!)
+// Для быстрой настройки токены можно указать здесь, но лучше вынести в config.php
+$telegramTokenFile = __DIR__ . '/config/telegram_token.txt';
+$telegramChatIdFile = __DIR__ . '/config/telegram_chat_id.txt';
+
+if (file_exists($telegramTokenFile)) {
+    define('TELEGRAM_BOT_TOKEN', trim(file_get_contents($telegramTokenFile)));
+} else {
+    // Резервный вариант (удалить после создания config файлов!)
+    define('TELEGRAM_BOT_TOKEN', '8544616219:AAFiKfXks86HrqVbvuk77NvSARnBLlrHmaQ');
+}
+
+if (file_exists($telegramChatIdFile)) {
+    define('TELEGRAM_CHAT_ID', trim(file_get_contents($telegramChatIdFile)));
+} else {
+    // Резервный вариант (удалить после создания config файлов!)
+    define('TELEGRAM_CHAT_ID', '293171586');
+}
+
 define('SITE_URL', 'https://zumba-spb.ru');
 
 // Rate limiting - защита от спама
@@ -84,8 +104,30 @@ function escapeMarkdownV2($text) {
 function validatePhone($phone) {
     // Удаляем всё кроме цифр и +
     $clean = preg_replace('/[^\d+]/', '', $phone);
-    // Проверяем формат (российский номер)
-    return preg_match('/^\+?7\d{10}$/', $clean) || preg_match('//^8\d{10}$/', $clean);
+    // Строгая проверка российского номера (+7 или 8, затем 10 цифр)
+    return preg_match('/^\+7\d{10}$/', $clean) || preg_match('/^8\d{10}$/', $clean);
+}
+
+// Генерация CSRF токена
+function generateCsrfToken() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+// Проверка CSRF токена
+function validateCsrfToken($token) {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (empty($_SESSION['csrf_token']) || empty($token)) {
+        return false;
+    }
+    return hash_equals($_SESSION['csrf_token'], $token);
 }
 
 // Получаем IP адрес
@@ -107,13 +149,19 @@ try {
     // Получаем идентификатор для rate limiting
     $clientIP = getClientIP();
     $rateLimiter = new RateLimiter();
-    
+
     if (!$rateLimiter->isAllowed($clientIP)) {
         http_response_code(429);
         echo json_encode(['success' => false, 'error' => 'Слишком много запросов. Попробуйте позже.']);
         exit;
     }
-    
+
+    // CSRF защита
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    if (!validateCsrfToken($csrfToken)) {
+        throw new Exception('Неверный CSRF токен. Обновите страницу и попробуйте снова.');
+    }
+
     // Получаем и валидируем данные
     $name = trim($_POST['name'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
@@ -131,23 +179,21 @@ try {
     }
     
     // Валидация программы
-    $validPrograms = ['classic', 'toning', 'gold', 'aqua'];
+    $validPrograms = ['classic', 'gold'];
     if (!in_array($program, $validPrograms)) {
         throw new Exception('Неверная программа тренировок');
     }
-    
+
     // Проверка согласия
     $privacy = $_POST['privacy'] ?? false;
     if (!$privacy) {
         throw new Exception('Необходимо согласие на обработку персональных данных');
     }
-    
+
     // Словарь программ
     $programNames = [
         'classic' => 'Zumba Classic',
-        'toning' => 'Zumba Toning',
-        'gold' => 'Zumba Gold',
-        'aqua' => 'Aqua Zumba'
+        'gold' => 'Zumba Gold'
     ];
     
     // Формируем сообщение для Telegram
@@ -204,9 +250,12 @@ try {
     }
     
     // Успех
+    // Генерируем новый CSRF токен для следующего запроса (rotation)
+    $newCsrfToken = generateCsrfToken();
     echo json_encode([
         'success' => true,
-        'message' => 'Заявка успешно отправлена'
+        'message' => 'Заявка успешно отправлена',
+        'csrf_token' => $newCsrfToken
     ]);
     
 } catch (Exception $e) {
