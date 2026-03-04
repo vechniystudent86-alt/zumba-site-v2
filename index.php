@@ -67,6 +67,12 @@ $csrf_token = $_SESSION['csrf_token'];
     <link rel="stylesheet" href="responsive.min.css">
     
     <!-- Yandex.Metrika counter -->
+    <?php
+    // Отключаем Метрику при локальной разработке
+    $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1', 'localhost'], true) 
+        || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false;
+    ?>
+    <?php if (!$isLocalhost): ?>
     <script type="text/javascript">
         (function(m,e,t,r,i,k,a){
             m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
@@ -78,6 +84,7 @@ $csrf_token = $_SESSION['csrf_token'];
         ym(106970869, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
     </script>
     <noscript><div><img src="https://mc.yandex.ru/watch/106970869" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <?php endif; ?>
     <!-- /Yandex.Metrika counter -->
     
     <!-- Schema.org Structured Data -->
