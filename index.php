@@ -659,34 +659,58 @@ $csrf_token = $_SESSION['csrf_token'];
                         </a>
                     </div>
                 </div>
-                <form class="contact-form" id="contactForm" aria-label="Форма записи на тренировку">
+                <form class="contact-form" id="contactForm" aria-label="Форма записи на тренировку" novalidate>
                     <input type="hidden" name="csrf_token" id="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                     <div class="form-group">
-                        <input type="text" id="name" name="name" required placeholder=" ">
+                        <input type="text" id="name" name="name" required placeholder=" " 
+                               aria-label="Ваше имя" 
+                               aria-required="true"
+                               aria-describedby="name-hint"
+                               autocomplete="name"
+                               minlength="2" maxlength="100">
                         <label for="name">Ваше имя</label>
+                        <span id="name-hint" class="visually-hidden">Введите ваше имя от 2 до 100 символов</span>
                     </div>
                     <div class="form-group">
-                        <input type="tel" id="phone" name="phone" required placeholder=" ">
+                        <input type="tel" id="phone" name="phone" required placeholder=" " 
+                               aria-label="Номер телефона" 
+                               aria-required="true"
+                               aria-describedby="phone-hint"
+                               autocomplete="tel"
+                               pattern="^(\+7|8)\d{10}$">
                         <label for="phone">Телефон</label>
+                        <span id="phone-hint" class="visually-hidden">Введите номер телефона в формате +7 999 123-45-67</span>
                     </div>
                     <div class="form-group">
-                        <select id="program" name="program" required>
+                        <select id="program" name="program" required 
+                                aria-label="Выберите программу тренировок"
+                                aria-required="true">
                             <option value="" disabled selected>Выберите программу</option>
                             <option value="classic">Zumba Classic</option>
                             <option value="gold">Zumba Gold</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <textarea id="message" name="message" rows="4" placeholder=" "></textarea>
-                        <label for="message">Сообщение (необязательно)</label>
+                        <textarea id="message" name="message" rows="4" placeholder=" " 
+                                  aria-label="Сообщение (необязательно)"
+                                  aria-describedby="message-hint"
+                                  maxlength="500"></textarea>
+                        <label for="message">Сообщение</label>
+                        <span id="message-hint" class="visually-hidden">Необязательное поле, максимум 500 символов</span>
                     </div>
                     <div class="form-group checkbox-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="privacy" name="privacy" required>
-                            <span>Я согласен на <a href="privacy-policy.html" target="_blank">обработку персональных данных</a></span>
+                            <input type="checkbox" id="privacy" name="privacy" required 
+                                   aria-required="true"
+                                   aria-describedby="privacy-hint">
+                            <span>Я согласен на <a href="privacy-policy.html" target="_blank" rel="noopener noreferrer">обработку персональных данных</a></span>
                         </label>
+                        <span id="privacy-hint" class="visually-hidden">Согласие на обработку персональных данных обязательно для отправки формы</span>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-full">Отправить заявку</button>
+                    <button type="submit" class="btn btn-primary btn-full" 
+                            aria-label="Отправить заявку на тренировку">
+                        Отправить заявку
+                    </button>
                 </form>
             </div>
         </div>

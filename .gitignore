@@ -26,3 +26,6 @@ desktop.ini
 
 # Local config (если нужен)
 config.local.php
+
+logs/*
+!logs/.gitkeep

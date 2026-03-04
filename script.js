@@ -1,7 +1,53 @@
 /**
  * Zumba Trainer Website - Interactive JavaScript
  * Alexander Melnikov
+ * Версия: 2.1.0 (с оптимизациями производительности и a11y)
  */
+
+/**
+ * Utility: Throttle function
+ * Ограничивает частоту вызова функции
+ */
+function throttle(fn, delay) {
+    let lastCall = 0;
+    let timeoutId = null;
+    return function(...args) {
+        const now = Date.now();
+        const remaining = delay - (now - lastCall);
+        if (remaining <= 0) {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+            lastCall = now;
+            fn.apply(this, args);
+        } else if (!timeoutId) {
+            timeoutId = setTimeout(() => {
+                lastCall = Date.now();
+                timeoutId = null;
+                fn.apply(this, args);
+            }, remaining);
+        }
+    };
+}
+
+/**
+ * Utility: Debounce function
+ * Откладывает вызов функции до прекращения событий
+ */
+function debounce(fn, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+/**
+ * Проверка prefers-reduced-motion
+ * Для пользователей с ограниченной анимацией
+ */
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize all modules
@@ -15,70 +61,89 @@ document.addEventListener('DOMContentLoaded', () => {
     HeartAnimation.init();
     ReviewsSlider.init();
     FAQ.init();
+    MetrikaGoals.init();
+    ServiceWorkerHandler.init();
 });
 
 /**
  * Custom Cursor Module
+ * Кастомный курсор с эффектом сердечек
  */
 const CustomCursor = {
     cursor: null,
     follower: null,
     heartsContainer: null,
     lastHeartTime: 0,
-    
+    heartCount: 0,
+    maxHearts: 30, // Уменьшено с 50 для производительности
+    enabled: false,
+
     init() {
+        // Отключаем для пользователей с prefers-reduced-motion
+        if (prefersReducedMotion) {
+            return;
+        }
+        
         if (window.matchMedia('(pointer: fine)').matches) {
             this.heartsContainer = document.getElementById('hearts-container');
             this.createCursor();
             this.addEventListeners();
+            this.enabled = true;
         }
     },
-    
+
     createCursor() {
         this.cursor = document.createElement('div');
         this.cursor.className = 'cursor';
+        this.cursor.setAttribute('aria-hidden', 'true');
         this.follower = document.createElement('div');
         this.follower.className = 'cursor-follower';
+        this.follower.setAttribute('aria-hidden', 'true');
         document.body.appendChild(this.cursor);
         document.body.appendChild(this.follower);
     },
-    
+
     addEventListeners() {
-        document.addEventListener('mousemove', (e) => {
+        // Throttled mousemove для производительности
+        const throttledMouseMove = throttle((e) => {
             this.cursor.style.left = e.clientX + 'px';
             this.cursor.style.top = e.clientY + 'px';
-            
-            setTimeout(() => {
+
+            // Уменьшена задержка follower для лучшей производительности
+            requestAnimationFrame(() => {
                 this.follower.style.left = e.clientX + 'px';
                 this.follower.style.top = e.clientY + 'px';
-            }, 50);
-            
-            // Create hearts on mouse move
+            });
+
+            // Создаём сердечки реже
             this.createHeart(e.clientX, e.clientY);
-        });
-        
+        }, 16); // ~60fps
+
+        document.addEventListener('mousemove', throttledMouseMove, { passive: true });
+
         // Hover effects
         const hoverElements = document.querySelectorAll('a, button, .program-card, .review-card');
         hoverElements.forEach(el => {
             el.addEventListener('mouseenter', () => this.follower.classList.add('hover'));
             el.addEventListener('mouseleave', () => this.follower.classList.remove('hover'));
         });
-        
-        // Click effect - burst of hearts
+
+        // Click effect - burst of hearts (уменьшено количество)
         document.addEventListener('click', (e) => {
             this.createHeartBurst(e.clientX, e.clientY);
         });
     },
-    
-    createHeart(x, y) {
-        const now = Date.now();
-        // Limit heart creation rate
-        if (now - this.lastHeartTime < 100) return;
 
+    createHeart(x, y) {
+        if (!this.enabled || !this.heartsContainer) return;
+        
+        const now = Date.now();
+        // Увеличен интервал между сердечками
+        if (now - this.lastHeartTime < 150) return;
         this.lastHeartTime = now;
 
-        // Ограничиваем максимальное количество сердечек в DOM
-        if (this.heartsContainer && this.heartsContainer.children.length > 50) {
+        // Ограничиваем максимальное количество сердечек
+        while (this.heartsContainer.children.length >= this.maxHearts) {
             const oldest = this.heartsContainer.firstElementChild;
             if (oldest) oldest.remove();
         }
@@ -90,34 +155,39 @@ const CustomCursor = {
         heart.style.top = (y + (Math.random() - 0.5) * 40) + 'px';
         heart.style.fontSize = (12 + Math.random() * 16) + 'px';
         heart.style.color = this.getRandomHeartColor();
+        heart.setAttribute('aria-hidden', 'true');
 
-        if (this.heartsContainer) {
-            this.heartsContainer.appendChild(heart);
-        }
+        this.heartsContainer.appendChild(heart);
 
-        // Remove heart after animation
+        // Удаляем сердечко после анимации
         setTimeout(() => {
-            heart.remove();
-        }, 3000);
+            if (heart.parentNode) {
+                heart.remove();
+            }
+        }, 2000); // Уменьшено с 3000ms
     },
-    
+
     createHeartBurst(x, y) {
-        for (let i = 0; i < 8; i++) {
+        if (!this.enabled) return;
+        
+        // Уменьшено количество сердечек в burst
+        const burstCount = 5;
+        for (let i = 0; i < burstCount; i++) {
             setTimeout(() => {
-                const offsetX = (Math.random() - 0.5) * 100;
-                const offsetY = (Math.random() - 0.5) * 100;
+                const offsetX = (Math.random() - 0.5) * 80;
+                const offsetY = (Math.random() - 0.5) * 80;
                 this.createHeart(x + offsetX, y + offsetY);
-            }, i * 50);
+            }, i * 40);
         }
     },
-    
+
     getRandomHeartColor() {
         const colors = [
-            '#FF2D75', // Primary pink
-            '#FF5B95', // Light pink
-            '#FFB800', // Gold
-            '#FF6B6B', // Coral
-            '#E61E5F', // Dark pink
+            '#FF2D75',
+            '#FF5B95',
+            '#FFB800',
+            '#FF6B6B',
+            '#E61E5F',
         ];
         return colors[Math.floor(Math.random() * colors.length)];
     }
@@ -125,58 +195,83 @@ const CustomCursor = {
 
 /**
  * Navigation Module
+ * Навигация с мобильным меню и активной ссылкой
  */
 const Navigation = {
     navbar: null,
     toggle: null,
     menu: null,
-    
+
     init() {
         this.navbar = document.querySelector('.navbar');
         this.toggle = document.querySelector('.nav-toggle');
         this.menu = document.querySelector('.nav-menu');
-        
+
+        if (!this.navbar || !this.toggle || !this.menu) {
+            return;
+        }
+
         this.addScrollListener();
         this.addToggleListener();
         this.addActiveLinkListener();
     },
-    
+
     addScrollListener() {
-        window.addEventListener('scroll', () => {
+        // Throttled scroll listener
+        const throttledScroll = throttle(() => {
             if (window.scrollY > 100) {
                 this.navbar.classList.add('scrolled');
             } else {
                 this.navbar.classList.remove('scrolled');
             }
-        });
+        }, 100);
+
+        window.addEventListener('scroll', throttledScroll, { passive: true });
     },
-    
+
     addToggleListener() {
         this.toggle.addEventListener('click', () => {
             this.toggle.classList.toggle('active');
             this.menu.classList.toggle('active');
+            
+            // A11y: обновляем aria-expanded
+            const isExpanded = this.toggle.classList.contains('active');
+            this.toggle.setAttribute('aria-expanded', isExpanded.toString());
         });
-        
+
         // Close menu on link click
         this.menu.querySelectorAll('a').forEach(link => {
             link.addEventListener('click', () => {
                 this.toggle.classList.remove('active');
                 this.menu.classList.remove('active');
+                this.toggle.setAttribute('aria-expanded', 'false');
             });
         });
+        
+        // Close menu on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.toggle.classList.contains('active')) {
+                this.toggle.classList.remove('active');
+                this.menu.classList.remove('active');
+                this.toggle.setAttribute('aria-expanded', 'false');
+                this.toggle.focus();
+            }
+        });
     },
-    
+
     addActiveLinkListener() {
         const sections = document.querySelectorAll('section[id]');
-        
-        window.addEventListener('scroll', () => {
+        if (!sections.length) return;
+
+        // Throttled scroll listener
+        const throttledScroll = throttle(() => {
             const scrollY = window.scrollY;
-            
+
             sections.forEach(section => {
                 const sectionHeight = section.offsetHeight;
                 const sectionTop = section.offsetTop - 150;
                 const sectionId = section.getAttribute('id');
-                
+
                 if (scrollY > sectionTop && scrollY <= sectionTop + sectionHeight) {
                     this.menu.querySelectorAll('a').forEach(link => {
                         link.classList.remove('active');
@@ -186,34 +281,58 @@ const Navigation = {
                     });
                 }
             });
-        });
+        }, 100);
+
+        window.addEventListener('scroll', throttledScroll, { passive: true });
     }
 };
 
 /**
  * Scroll Animations Module
+ * Анимации при скролле с использованием IntersectionObserver
  */
 const ScrollAnimations = {
     elements: null,
-    
+    observer: null,
+
     init() {
         this.elements = document.querySelectorAll('.fade-in, .program-card, .review-card, .stat-item');
+        if (!this.elements.length) return;
+        
         this.addScrollListener();
         this.checkVisibility(); // Check on load
     },
-    
+
     addScrollListener() {
-        window.addEventListener('scroll', () => {
-            this.checkVisibility();
-        });
+        // Используем IntersectionObserver вместо scroll event
+        if ('IntersectionObserver' in window) {
+            this.observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        // Перестаем наблюдать после появления
+                        this.observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                rootMargin: '0px 0px -15% 0px',
+                threshold: 0.1
+            });
+
+            this.elements.forEach(el => this.observer.observe(el));
+        } else {
+            // Fallback для старых браузеров
+            window.addEventListener('scroll', throttle(() => {
+                this.checkVisibility();
+            }, 100), { passive: true });
+        }
     },
-    
+
     checkVisibility() {
         const triggerBottom = window.innerHeight * 0.85;
-        
+
         this.elements.forEach(el => {
             const elementTop = el.getBoundingClientRect().top;
-            
             if (elementTop < triggerBottom) {
                 el.classList.add('visible');
             }
@@ -223,51 +342,72 @@ const ScrollAnimations = {
 
 /**
  * Counter Animation Module
+ * Анимация счётчиков статистики
  */
 const CounterAnimation = {
     counters: null,
     animated: false,
-    
+    observer: null,
+
     init() {
         this.counters = document.querySelectorAll('.stat-number');
+        if (!this.counters.length) return;
+        
         this.addScrollListener();
     },
-    
+
     addScrollListener() {
         const statsSection = document.querySelector('.stats');
-        
-        const observer = new IntersectionObserver((entries) => {
+        if (!statsSection) return;
+
+        // Отключаем для prefers-reduced-motion
+        if (prefersReducedMotion) {
+            // Просто показываем финальные значения
+            this.counters.forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-target'));
+                counter.textContent = target.toLocaleString() + '+';
+            });
+            return;
+        }
+
+        this.observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting && !this.animated) {
                     this.animateCounters();
                     this.animated = true;
+                    this.observer.unobserve(entry.target);
                 }
             });
         }, { threshold: 0.5 });
-        
-        if (statsSection) {
-            observer.observe(statsSection);
-        }
+
+        this.observer.observe(statsSection);
     },
-    
+
     animateCounters() {
         this.counters.forEach(counter => {
             const target = parseInt(counter.getAttribute('data-target'));
             const duration = 2000;
-            const increment = target / (duration / 16);
-            let current = 0;
-            
-            const updateCounter = () => {
-                current += increment;
-                if (current < target) {
-                    counter.textContent = Math.floor(current).toLocaleString();
+            const startTime = performance.now();
+            const startValue = 0;
+
+            const updateCounter = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function (ease-out)
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                const current = startValue + (target * easeOut);
+
+                counter.textContent = Math.floor(current).toLocaleString();
+
+                if (progress < 1) {
                     requestAnimationFrame(updateCounter);
                 } else {
                     counter.textContent = target.toLocaleString() + '+';
                 }
             };
-            
-            updateCounter();
+
+            requestAnimationFrame(updateCounter);
         });
     }
 };
@@ -506,22 +646,47 @@ const SmoothScroll = {
 
 /**
  * Parallax Effect for Hero Section
+ * Параллакс эффект с throttle для производительности
  */
-window.addEventListener('scroll', () => {
-    const hero = document.querySelector('.hero');
-    const scrolled = window.scrollY;
+const ParallaxEffect = {
+    hero: null,
+    shapes: null,
+    
+    init() {
+        this.hero = document.querySelector('.hero');
+        this.shapes = document.querySelectorAll('.floating-shape');
+        
+        if (!this.hero || !this.shapes.length) return;
+        
+        // Отключаем для prefers-reduced-motion
+        if (prefersReducedMotion) return;
+        
+        this.addScrollListener();
+    },
+    
+    addScrollListener() {
+        const throttledParallax = throttle(() => {
+            const scrolled = window.scrollY;
+            const heroHeight = this.hero.offsetHeight;
 
-    if (scrolled < hero.offsetHeight) {
-        const shapes = document.querySelectorAll('.floating-shape');
-        shapes.forEach((shape, index) => {
-            const speed = (index + 1) * 0.1;
-            shape.style.transform = `translateY(${scrolled * speed}px)`;
-        });
+            if (scrolled < heroHeight) {
+                this.shapes.forEach((shape, index) => {
+                    const speed = (index + 1) * 0.1;
+                    shape.style.transform = `translateY(${scrolled * speed}px)`;
+                });
+            }
+        }, 16);
+        
+        window.addEventListener('scroll', throttledParallax, { passive: true });
     }
-});
+};
+
+// Инициализируем вместо глобального обработчика
+ParallaxEffect.init();
 
 /**
  * Reviews Slider Module
+ * Слайдер отзывов с автоплеем и поддержкой touch/keyboard
  */
 const ReviewsSlider = {
     track: null,
@@ -535,6 +700,7 @@ const ReviewsSlider = {
     autoPlayInterval: null,
     autoPlayDelay: 5000,
     isAnimating: false,
+    resizeObserver: null,
 
     init() {
         this.track = document.querySelector('.reviews-track');
@@ -548,17 +714,11 @@ const ReviewsSlider = {
             return;
         }
 
-        // Сначала определяем видимые слайды
         this.updateVisibleSlides();
-        // Затем создаём точки
         this.createDots();
-        // Добавляем обработчики
         this.addEventListeners();
-        // Добавляем resize listener
         this.addResizeListener();
-        // Запускаем автоплей
         this.startAutoPlay();
-        // Обновляем слайдер в конце
         this.updateSlider();
     },
 
@@ -573,36 +733,44 @@ const ReviewsSlider = {
     },
 
     addResizeListener() {
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                this.updateVisibleSlides();
-                this.createDots();
-                this.currentIndex = 0;
-                this.updateSlider();
-            }, 250);
-        });
+        // Используем debounce для resize
+        const debouncedResize = debounce(() => {
+            this.updateVisibleSlides();
+            this.updateDots();
+            this.currentIndex = 0;
+            this.updateSlider();
+        }, 250);
+        
+        window.addEventListener('resize', debouncedResize);
     },
 
     createDots() {
+        if (!this.dotsContainer) return;
+        
         this.dotsContainer.innerHTML = '';
         const totalDots = Math.max(1, this.totalSlides - this.visibleSlides + 1);
+        
         for (let i = 0; i < totalDots; i++) {
             const dot = document.createElement('button');
-            dot.setAttribute('aria-label', `Страница ${i + 1}`);
+            dot.className = 'slider-dot';
+            dot.setAttribute('type', 'button');
+            dot.setAttribute('aria-label', `Показать слайд ${i + 1}`);
+            dot.setAttribute('aria-controls', 'reviews-track');
             if (i === 0) dot.classList.add('active');
+            
             dot.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 this.goToSlide(i);
             });
+            
             this.dotsContainer.appendChild(dot);
         }
     },
 
     addEventListeners() {
         if (this.prevBtn) {
+            this.prevBtn.setAttribute('aria-label', 'Предыдущий отзыв');
             this.prevBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -612,6 +780,7 @@ const ReviewsSlider = {
         }
 
         if (this.nextBtn) {
+            this.nextBtn.setAttribute('aria-label', 'Следующий отзыв');
             this.nextBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -627,16 +796,20 @@ const ReviewsSlider = {
             sliderContainer.addEventListener('mouseleave', () => this.startAutoPlay());
         }
 
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') {
-                this.prev();
-                this.resetAutoPlay();
-            } else if (e.key === 'ArrowRight') {
-                this.next();
-                this.resetAutoPlay();
-            }
-        });
+        // Keyboard navigation - только когда слайдер в фокусе
+        if (sliderContainer) {
+            sliderContainer.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    this.prev();
+                    this.resetAutoPlay();
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    this.next();
+                    this.resetAutoPlay();
+                }
+            });
+        }
 
         // Touch support
         this.initTouch();
@@ -770,6 +943,7 @@ const HeartAnimation = {
 
 /**
  * FAQ Accordion Module
+ * Аккордеон для вопросов/ответов с ARIA
  */
 const FAQ = {
     items: null,
@@ -781,9 +955,36 @@ const FAQ = {
     },
 
     addEventListeners() {
-        this.items.forEach(item => {
+        this.items.forEach((item, index) => {
             const question = item.querySelector('.faq-question');
-            question.addEventListener('click', () => this.toggleItem(item));
+            const answer = item.querySelector('.faq-answer');
+            
+            if (question && answer) {
+                // Устанавливаем ARIA атрибуты
+                const questionId = `faq-question-${index}`;
+                const answerId = `faq-answer-${index}`;
+                
+                question.setAttribute('id', questionId);
+                question.setAttribute('aria-controls', answerId);
+                question.setAttribute('aria-expanded', 'false');
+                question.setAttribute('role', 'button');
+                question.setAttribute('tabindex', '0');
+                
+                answer.setAttribute('id', answerId);
+                answer.setAttribute('aria-labelledby', questionId);
+                answer.setAttribute('role', 'region');
+                
+                // Обработчик клика
+                question.addEventListener('click', () => this.toggleItem(item));
+                
+                // Обработчик клавиатуры (Enter и Space)
+                question.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.toggleItem(item);
+                    }
+                });
+            }
         });
     },
 
@@ -791,7 +992,7 @@ const FAQ = {
         const question = item.querySelector('.faq-question');
         const isExpanded = question.getAttribute('aria-expanded') === 'true';
 
-        // Close all other items
+        // Закрываем все остальные
         this.items.forEach(otherItem => {
             if (otherItem !== item) {
                 otherItem.classList.remove('active');
@@ -799,24 +1000,26 @@ const FAQ = {
             }
         });
 
-        // Toggle current item
-        if (isExpanded) {
-            item.classList.remove('active');
-            question.setAttribute('aria-expanded', 'false');
-        } else {
-            item.classList.add('active');
-            question.setAttribute('aria-expanded', 'true');
-        }
+        // Переключаем текущий
+        item.classList.toggle('active');
+        question.setAttribute('aria-expanded', (!isExpanded).toString());
     }
 };
 
 /**
  * Yandex.Metrika Goals Module
+ * Трекинг целей Яндекс.Метрики
  */
 const MetrikaGoals = {
+    metrikaId: 106970869,
+    
     init() {
+        if (typeof ym === 'undefined') {
+            return;
+        }
         this.trackPhoneClicks();
         this.trackNavClicks();
+        this.trackFormSubmits();
     },
 
     trackPhoneClicks() {
@@ -824,7 +1027,7 @@ const MetrikaGoals = {
         phoneLinks.forEach(link => {
             link.addEventListener('click', () => {
                 if (typeof ym !== 'undefined') {
-                    ym(106970869, 'reachGoal', 'phone_click');
+                    ym(this.metrikaId, 'reachGoal', 'phone_click');
                 }
             });
         });
@@ -836,23 +1039,22 @@ const MetrikaGoals = {
             link.addEventListener('click', () => {
                 if (typeof ym !== 'undefined') {
                     const section = link.getAttribute('href').substring(1);
-                    ym(106970869, 'reachGoal', 'nav_click', { section });
+                    ym(this.metrikaId, 'reachGoal', 'nav_click', { section });
                 }
             });
         });
+    },
+    
+    trackFormSubmits() {
+        // Формы уже трекаются в ContactForm модуле
     }
 };
 
-// Initialize Metrika Goals after DOM loaded
-document.addEventListener('DOMContentLoaded', () => {
-    MetrikaGoals.init();
-    ServiceWorker.init();
-});
-
 /**
- * Service Worker Module
+ * Service Worker Handler Module
+ * Регистрация и обновление Service Worker
  */
-const ServiceWorker = {
+const ServiceWorkerHandler = {
     init() {
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
@@ -861,15 +1063,17 @@ const ServiceWorker = {
                         scope: '/'
                     });
                     console.log('[SW] Service Worker registered:', registration.scope);
-                    
+
                     // Check for updates
                     registration.addEventListener('updatefound', () => {
                         const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                this.showUpdateNotification();
-                            }
-                        });
+                        if (newWorker) {
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    this.showUpdateNotification();
+                                }
+                            });
+                        }
                     });
                 } catch (error) {
                     console.error('[SW] Service Worker registration failed:', error);
@@ -879,11 +1083,15 @@ const ServiceWorker = {
     },
 
     showUpdateNotification() {
-        if (confirm('Доступна новая версия сайта! Перезагрузить страницу?')) {
-            if (navigator.serviceWorker.controller) {
-                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
-            }
-            window.location.reload();
-        }
+        const notification = document.createElement('div');
+        notification.className = 'sw-update-notification';
+        notification.innerHTML = `
+            <div style="position: fixed; bottom: 20px; right: 20px; background: var(--color-primary); color: white; padding: 16px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; display: flex; align-items: center; gap: 12px;">
+                <span>🔄 Доступна новая версия сайта!</span>
+                <button onclick="window.location.reload()" style="background: white; color: var(--color-primary); border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600;">Обновить</button>
+                <button onclick="this.closest('.sw-update-notification').remove()" style="background: transparent; color: white; border: 1px solid white; padding: 8px 12px; border-radius: 4px; cursor: pointer;">✕</button>
+            </div>
+        `;
+        document.body.appendChild(notification);
     }
 };

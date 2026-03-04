@@ -1,0 +1,47 @@
+{
+  "prices": {
+    "8_lessons": {
+      "name": "8 занятий",
+      "price": "4800₽"
+    },
+    "6_lessons": {
+      "name": "6 занятий",
+      "price": "3900₽"
+    },
+    "4_lessons": {
+      "name": "4 занятия",
+      "price": "2800₽"
+    },
+    "single": {
+      "name": "Разовое посещение",
+      "price": "750₽"
+    },
+    "trial": {
+      "name": "Пробная тренировка",
+      "price": "500₽"
+    }
+  },
+  "schedule": [
+    {
+      "day": "Пн",
+      "time_and_program": "19:45 - Zumba fitness"
+    },
+    {
+      "day": "Ср",
+      "time_and_program": "20:00 - Zumba fitness"
+    },
+    {
+      "day": "Пт",
+      "time_and_program": "10:30 - Zumba fitness"
+    },
+    {
+      "day": "Вс",
+      "time_and_program": "12:00 - Zumba Gold"
+    }
+  ],
+  "contact": {
+    "phone": "+7 (921) 892-51-57",
+    "phone_raw": "+79218925157",
+    "address": "Санкт-Петербург, ул. Маршала Захарова, 20Д (Зумба у залива)"
+  }
+}
