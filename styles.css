@@ -426,9 +426,10 @@ img {
 
 .hero-subtitle {
     font-size: 1.2rem;
-    color: var(--color-text-secondary);
+    color: #ffffff;
     margin-bottom: 40px;
     font-weight: 300;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .hero-cta {
@@ -515,9 +516,8 @@ img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center 30%;
+    object-position: center center;
     animation: photoFloat 8s ease-in-out infinite;
-    aspect-ratio: 1 / 1;
 }
 
 @keyframes photoFloat {
@@ -594,17 +594,19 @@ img {
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    color: var(--color-text-muted);
+    color: #ffffff;
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 2px;
     animation: bounce 2s infinite;
+    z-index: 10;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .scroll-arrow {
     width: 20px;
     height: 30px;
-    border: 2px solid var(--color-text-muted);
+    border: 2px solid #ffffff;
     border-radius: 10px;
     position: relative;
 }
@@ -708,24 +710,29 @@ section[id] {
 
 .about-image .image-card {
     width: 100%;
+    max-width: 400px;
     aspect-ratio: 4/5;
     background: var(--color-bg-light);
     border-radius: 20px;
     position: relative;
     overflow: hidden;
+    margin: 0 auto;
 }
 
 .about-image .image-card picture {
     display: block;
     width: 100%;
     height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .about-image .image-card img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
+    object-position: center center;
     transition: transform 0.3s ease-in-out;
 }
 
