@@ -381,6 +381,11 @@
             <div class="about-content">
                 <div class="about-image">
                     <div class="image-card">
+                        <picture>
+                            <source srcset="hero-photo-320.webp 320w, hero-photo-480.webp 480w, hero-photo-640.webp 640w" sizes="(max-width: 480px) 280px, (max-width: 768px) 350px, 400px" type="image/webp">
+                            <source srcset="hero-photo-320.png 320w, hero-photo-480.png 480w, hero-photo-640.png 640w" sizes="(max-width: 480px) 280px, (max-width: 768px) 350px, 400px" type="image/png">
+                            <img src="hero-photo.png?v=4" alt="Александра Мельникова — сертифицированный инструктор Zumba в Санкт-Петербурге" width="400" height="400" loading="lazy" decoding="async">
+                        </picture>
                         <div class="image-overlay"></div>
                     </div>
                 </div>

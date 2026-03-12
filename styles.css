@@ -715,6 +715,24 @@ section[id] {
     overflow: hidden;
 }
 
+.about-image .image-card picture {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.about-image .image-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.3s ease-in-out;
+}
+
+.about-image .image-card:hover img {
+    transform: scale(1.05);
+}
+
 .image-overlay {
     width: 100%;
     height: 100%;
@@ -722,6 +740,11 @@ section[id] {
     display: flex;
     justify-content: center;
     align-items: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
 }
 
 .image-overlay::after {
@@ -730,6 +753,10 @@ section[id] {
     font-size: 1.5rem;
     color: rgba(255,255,255,0.5);
     text-transform: uppercase;
+}
+
+.about-image .image-card:hover .image-overlay {
+    opacity: 1;
 }
 
 .about-text h3 {
