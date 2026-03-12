@@ -1,0 +1,48 @@
+{
+  "general": {
+    "defaultApprovalMode": "auto_edit",
+    "checkpointing": {
+      "enabled": true
+    },
+    "plan": {
+      "modelRouting": true
+    }
+  },
+  "ui": {
+    "showLineNumbers": true,
+    "dynamicWindowTitle": true
+  },
+  "tools": {
+    "sandbox": "docker",
+    "allowed": [
+      "run_shell_command(git status)",
+      "run_shell_command(npm test)",
+      "run_shell_command(pytest)"
+    ]
+  },
+  "security": {
+    "folderTrust": {
+      "enabled": true
+    },
+    "environmentVariableRedaction": {
+      "enabled": true
+    }
+  },
+  "experimental": {
+    "enableAgents": true,
+    "plan": true
+  },
+  "modelConfigs": {
+    "customAliases": {
+      "precise-mode": {
+        "extends": "chat-base",
+        "modelConfig": {
+          "generateContentConfig": {
+            "temperature": 0.0,
+            "topP": 1.0
+          }
+        }
+      }
+    }
+  }
+}

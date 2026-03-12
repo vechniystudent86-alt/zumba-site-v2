@@ -1,7 +1,7 @@
 <?php
 /**
  * Обработчик форм заявки
- * Версия: 2.1.0 (с исправлениями безопасности)
+ * Версия: 3.0.0 (Локальное сохранение CSV + Telegram Bot с кнопками)
  */
 
 // Заголовки безопасности
@@ -13,13 +13,6 @@ header('X-XSS-Protection: 1; mode=block');
 // Инициализация сессии для CSRF и rate limiting
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-}
-
-/**
- * Экранирование спецсимволов для Telegram MarkdownV2
- */
-function escapeMarkdownV2(string $text): string {
-    return preg_replace('/([_*\[\]()~>#+\-=|{}.!\\\\])/', '\\\\$1', $text);
 }
 
 /**
@@ -44,9 +37,6 @@ function generateCsrfToken(): string {
 
 /**
  * Rate limiting: проверка лимита запросов
- * @param int $limit Максимум запросов
- * @param int $window Период в секундах
- * @return array [allowed: bool, remaining: int, reset: int]
  */
 function checkRateLimit(int $limit = 5, int $window = 300): array {
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
@@ -75,7 +65,7 @@ function checkRateLimit(int $limit = 5, int $window = 300): array {
 }
 
 /**
- * Отправка запроса через cURL с обработкой ошибок
+ * Отправка запроса через cURL
  */
 function curlRequest(string $url, array $data, int $timeout = 10): array {
     $ch = curl_init($url);
@@ -92,26 +82,18 @@ function curlRequest(string $url, array $data, int $timeout = 10): array {
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
-            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS
+            CURLOPT_SSL_VERIFYHOST => 2
         ]);
         
         $response = curl_exec($ch);
         
         if ($response === false) {
             $error = curl_error($ch);
-            $errno = curl_errno($ch);
-            throw new Exception("cURL error ($errno): $error");
+            return ['success' => false, 'error' => $error];
         }
         
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        
-        return [
-            'success' => true,
-            'http_code' => $httpCode,
-            'response' => $response
-        ];
+        return ['success' => true, 'http_code' => $httpCode, 'response' => $response];
     } finally {
         curl_close($ch);
     }
@@ -135,41 +117,20 @@ try {
     
     // Проверка метода
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        http_response_code(405);
-        echo json_encode(['success' => false, 'error' => 'Метод не разрешён']);
-        exit;
+        throw new Exception('Метод не разрешён');
     }
     
     // Проверка CSRF токена
     $csrfToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!validateCsrfToken($csrfToken)) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Неверный CSRF токен. Обновите страницу и попробуйте снова.']);
-        exit;
+        throw new Exception('Неверный токен безопасности. Обновите страницу и попробуйте снова.');
     }
     
     // Проверка rate limiting
     $rateLimit = checkRateLimit(5, 300); // 5 запросов за 5 минут
     if (!$rateLimit['allowed']) {
-        http_response_code(429);
-        echo json_encode([
-            'success' => false,
-            'error' => 'Слишком много запросов. Попробуйте через ' . ceil($rateLimit['reset'] / 60) . ' мин.',
-            'retry_after' => $rateLimit['reset']
-        ]);
-        exit;
+        throw new Exception('Слишком много запросов. Попробуйте через ' . ceil($rateLimit['reset'] / 60) . ' мин.');
     }
-    
-    // Конфигурация
-    $crmUrl = file_exists(__DIR__ . '/config/crm_url.txt') 
-        ? trim(file_get_contents(__DIR__ . '/config/crm_url.txt')) 
-        : 'http://localhost:8000/api/leads';
-    $telegramToken = file_exists(__DIR__ . '/config/telegram_token.txt') 
-        ? trim(file_get_contents(__DIR__ . '/config/telegram_token.txt')) 
-        : '';
-    $telegramChatId = file_exists(__DIR__ . '/config/telegram_chat_id.txt') 
-        ? trim(file_get_contents(__DIR__ . '/config/telegram_chat_id.txt')) 
-        : '';
 
     // Получаем и валидируем данные формы
     $name = trim($_POST['name'] ?? '');
@@ -179,118 +140,102 @@ try {
 
     // Валидация имени
     if (mb_strlen($name) < 2 || mb_strlen($name) > 100) {
-        throw new Exception('Введите корректное имя (2-100 символов)');
-    }
-    
-    // Валидация имени: только буквы, пробелы, дефисы
-    if (!preg_match('/^[\p{Cyrillic}\p{Latin}\s\-]+$/u', $name)) {
-        throw new Exception('Имя должно содержать только буквы');
+        throw new Exception('Введите корректное имя (от 2 символов)');
     }
 
-    // Валидация телефона
+    // Валидация телефона (оставляем только цифры и плюс)
     $phoneClean = preg_replace('/[^\d+]/', '', $phone);
-    // Поддержка форматов: +7XXXXXXXXXX, 7XXXXXXXXXX, 8XXXXXXXXXX
     if (!preg_match('/^(\+7|7|8)\d{10}$/', $phoneClean)) {
-        throw new Exception('Введите корректный номер телефона (например, +79991234567)');
+        throw new Exception('Введите корректный номер телефона');
     }
     
-    // Нормализация телефона к +7
-    if (strpos($phoneClean, '8') === 0) {
-        $phoneClean = '+7' . substr($phoneClean, 1);
-    } elseif (strpos($phoneClean, '7') === 0 && strpos($phoneClean, '+') !== 0) {
-        $phoneClean = '+' . $phoneClean;
+    // Нормализация телефона к +7 для ссылок WhatsApp/Telegram
+    $phoneNormalized = $phoneClean;
+    if (strpos($phoneNormalized, '8') === 0) {
+        $phoneNormalized = '+7' . substr($phoneNormalized, 1);
+    } elseif (strpos($phoneNormalized, '7') === 0) {
+        $phoneNormalized = '+' . $phoneNormalized;
     }
+    $phoneForLink = str_replace('+', '', $phoneNormalized); // 79991234567
 
     // Валидация программы
     if (!in_array($program, ['classic', 'gold'])) {
-        throw new Exception('Неверная программа тренировок');
+        $program = 'classic';
     }
+    $programName = $program === 'classic' ? '💃 Zumba Classic' : '🌟 Zumba Gold';
 
-    // Валидация сообщения (если есть)
-    if ($message !== '' && mb_strlen($message) > 500) {
-        throw new Exception('Сообщение слишком длинное (макс. 500 символов)');
-    }
-
-    // Данные для CRM
-    $crmData = [
-        'name' => $name,
-        'phone' => $phoneClean,
-        'program' => $program,
-        'message' => $message,
-        'source' => 'website',
-        'timestamp' => date('c')
-    ];
-
-    // Отправка в CRM
-    $crmResult = curlRequest($crmUrl, $crmData, 10);
+    // 1. СОХРАНЕНИЕ В ЛОКАЛЬНЫЙ CSV ФАЙЛ (РЕЗЕРВНАЯ КОПИЯ)
+    $csvFile = __DIR__ . '/data/leads.csv';
+    $isNewFile = !file_exists($csvFile);
     
-    if (!$crmResult['success']) {
-        error_log("CRM cURL Error: " . $crmResult['response'] ?? 'No response');
-        throw new Exception('Ошибка соединения с сервером. Попробуйте позже.');
-    }
-    
-    if ($crmResult['http_code'] !== 201 && $crmResult['http_code'] !== 200) {
-        error_log("CRM Error: HTTP {$crmResult['http_code']} - Response: {$crmResult['response']}");
-        throw new Exception('Ошибка сохранения заявки. Попробуйте позвонить нам.');
-    }
-
-    $crmDecoded = json_decode($crmResult['response'], true);
-    if (!$crmDecoded || isset($crmDecoded['detail'])) {
-        error_log("CRM Response Error: " . json_encode($crmDecoded));
-        throw new Exception('Ошибка обработки заявки');
+    $fp = fopen($csvFile, 'a');
+    if ($fp) {
+        // Добавляем BOM для правильного отображения кириллицы в Excel
+        if ($isNewFile) {
+            fputs($fp, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($fp, ['Дата', 'Имя', 'Телефон', 'Программа', 'Сообщение'], ';');
+        }
+        $date = date('Y-m-d H:i:s');
+        fputcsv($fp, [$date, $name, $phoneNormalized, $programName, $message], ';');
+        fclose($fp);
+    } else {
+        error_log("Не удалось открыть файл для записи: $csvFile");
     }
 
-    // Отправка уведомления в Telegram
-    if ($telegramToken && $telegramChatId) {
-        $programName = $program === 'classic' ? 'Zumba Classic' : 'Zumba Gold';
+    // 2. ОТПРАВКА В TELEGRAM
+    $telegramToken = file_exists(__DIR__ . '/config/telegram_token.txt') 
+        ? trim(preg_replace('/\s+/', '', file_get_contents(__DIR__ . '/config/telegram_token.txt')))
+        : '';
+    $telegramChatId = file_exists(__DIR__ . '/config/telegram_chat_id.txt') 
+        ? trim(preg_replace('/\s+/', '', file_get_contents(__DIR__ . '/config/telegram_chat_id.txt')))
+        : '';
+
+    if (!empty($telegramToken) && !empty($telegramChatId)) {
         
-        $tgMessage = sprintf(
-            "🔔 *Новая заявка с сайта!*\n\n" .
-            "👤 *Имя:* %s\n" .
-            "📱 *Телефон:* %s\n" .
-            "💃 *Программа:* %s\n" .
-            "%s\n" .
-            "🌐 https://zumba-spb.ru",
-            escapeMarkdownV2($name),
-            escapeMarkdownV2($phoneClean),
-            escapeMarkdownV2($programName),
-            $message ? "💬 *Сообщение:* " . escapeMarkdownV2($message) . "\n" : ""
-        );
-
-        $tgUrl = "https://api.telegram.org/bot{$telegramToken}/sendMessage";
-        $tgData = [
-            'chat_id' => $telegramChatId,
-            'text' => $tgMessage,
-            'parse_mode' => 'MarkdownV2'
+        // Формируем текст сообщения (HTML разметка)
+        $tgText = "🔥 <b>Новая заявка на тренировку!</b>\n\n";
+        $tgText .= "👤 <b>Имя:</b> " . htmlspecialchars($name) . "\n";
+        $tgText .= "📱 <b>Телефон:</b> " . $phoneNormalized . "\n";
+        $tgText .= "🎯 <b>Программа:</b> " . $programName . "\n";
+        if (!empty($message)) {
+            $tgText .= "💬 <b>Комментарий:</b>\n<i>" . htmlspecialchars($message) . "</i>\n";
+        }
+        
+        // Формируем Inline-кнопки
+        $keyboard = [
+            'inline_keyboard' => [
+                [
+                    ['text' => '🟢 WhatsApp', 'url' => "https://wa.me/{$phoneForLink}"],
+                    ['text' => '📞 Позвонить', 'url' => "tel:{$phoneNormalized}"]
+                ]
+            ]
         ];
 
-        $tgResult = curlRequest($tgUrl, $tgData, 5);
-        
-        if (!$tgResult['success']) {
-            error_log("Telegram cURL Error: " . ($tgResult['response'] ?? 'No response'));
-        } else {
-            $tgDecoded = json_decode($tgResult['response'], true);
-            if (!$tgDecoded || !($tgDecoded['ok'] ?? false)) {
-                error_log("Telegram API Error: " . json_encode($tgDecoded));
-            }
-        }
-    }
+        $tgData = [
+            'chat_id' => $telegramChatId,
+            'text' => $tgText,
+            'parse_mode' => 'HTML',
+            'reply_markup' => $keyboard
+        ];
 
-    // Логирование успешной заявки
-    error_log("Form Success: name=$name, phone=$phoneClean, program=$program");
+        $tgUrl = "https://api.telegram.org/bot{$telegramToken}/sendMessage";
+        
+        // Отправляем запрос, но не прерываем скрипт, если Telegram недоступен
+        // (заявка уже сохранена в CSV)
+        curlRequest($tgUrl, $tgData, 3); 
+    }
 
     // Ротация CSRF токена после успешной отправки
     unset($_SESSION['csrf_token']);
 
-    // Успешный ответ
+    // Успешный ответ клиенту
     echo json_encode([
         'success' => true,
-        'message' => 'Заявка успешно отправлена! Мы свяжемся с вами в ближайшее время.',
-        'csrf_token' => generateCsrfToken() // Новый токен для следующей отправки
+        'message' => 'Заявка успешно отправлена!',
+        'csrf_token' => generateCsrfToken()
     ]);
 
 } catch (Exception $e) {
-    error_log("Form Error: " . $e->getMessage());
     http_response_code(400);
     echo json_encode([
         'success' => false,

@@ -59,44 +59,65 @@ if (empty($_SESSION['admin_logged_in'])) {
 
 // --- Обработка сохранения ---
 $message = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     // Валидация CSRF
     if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
         $message = '<div class="alert error">Ошибка безопасности (CSRF).</div>';
     } else {
-        // Собираем данные
-        $newContent = [
-            'prices' => [
-                '8_lessons' => ['name' => $_POST['price_8_name'], 'price' => $_POST['price_8_val']],
-                '6_lessons' => ['name' => $_POST['price_6_name'], 'price' => $_POST['price_6_val']],
-                '4_lessons' => ['name' => $_POST['price_4_name'], 'price' => $_POST['price_4_val']],
-                'single' => ['name' => $_POST['price_1_name'], 'price' => $_POST['price_1_val']],
-                'trial' => ['name' => $_POST['price_trial_name'], 'price' => $_POST['price_trial_val']],
-            ],
-            'schedule' => [],
-            'contact' => [
-                'phone' => $_POST['contact_phone'],
-                'phone_raw' => preg_replace('/[^\d+]/', '', $_POST['contact_phone']),
-                'address' => $_POST['contact_address']
-            ]
-        ];
+        if ($_POST['action'] === 'save') {
+            // Собираем данные
+            $newContent = [
+                'prices' => [
+                    '8_lessons' => ['name' => $_POST['price_8_name'], 'price' => $_POST['price_8_val']],
+                    '6_lessons' => ['name' => $_POST['price_6_name'], 'price' => $_POST['price_6_val']],
+                    '4_lessons' => ['name' => $_POST['price_4_name'], 'price' => $_POST['price_4_val']],
+                    'single' => ['name' => $_POST['price_1_name'], 'price' => $_POST['price_1_val']],
+                    'trial' => ['name' => $_POST['price_trial_name'], 'price' => $_POST['price_trial_val']],
+                ],
+                'schedule' => [],
+                'contact' => [
+                    'phone' => $_POST['contact_phone'],
+                    'phone_raw' => preg_replace('/[^\d+]/', '', $_POST['contact_phone']),
+                    'address' => $_POST['contact_address']
+                ]
+            ];
 
-        // Расписание (динамическое)
-        if (isset($_POST['schedule_day']) && is_array($_POST['schedule_day'])) {
-            for ($i = 0; $i < count($_POST['schedule_day']); $i++) {
-                $day = trim($_POST['schedule_day'][$i]);
-                $time = trim($_POST['schedule_time'][$i]);
-                if ($day !== '' || $time !== '') {
-                    $newContent['schedule'][] = ['day' => $day, 'time_and_program' => $time];
+            // Расписание (динамическое)
+            if (isset($_POST['schedule_day']) && is_array($_POST['schedule_day'])) {
+                for ($i = 0; $i < count($_POST['schedule_day']); $i++) {
+                    $day = trim($_POST['schedule_day'][$i]);
+                    $time = trim($_POST['schedule_time'][$i]);
+                    if ($day !== '' || $time !== '') {
+                        $newContent['schedule'][] = ['day' => $day, 'time_and_program' => $time];
+                    }
                 }
             }
-        }
 
-        // Сохранение
-        if (file_put_contents($contentFile, json_json_encode($newContent, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT))) {
-            $message = '<div class="alert success">Изменения успешно сохранены!</div>';
-        } else {
-            $message = '<div class="alert error">Ошибка сохранения файла. Проверьте права на запись.</div>';
+            // Сохранение в JSON
+            if (file_put_contents($contentFile, json_encode($newContent, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT))) {
+                $message = '<div class="alert success">Изменения успешно сохранены!</div>';
+                
+                // Синхронизация с базой данных бота
+                $syncResult = syncScheduleWithDatabase($newContent['schedule']);
+                if ($syncResult['success']) {
+                    $message .= '<div class="alert success">✅ Расписание синхронизировано с ботом!</div>';
+                } else {
+                    $message .= '<div class="alert error">⚠️ Ошибка синхронизации с ботом: ' . htmlspecialchars($syncResult['error']) . '</div>';
+                }
+            } else {
+                $message = '<div class="alert error">Ошибка сохранения файла. Проверьте права на запись.</div>';
+            }
+        } elseif ($_POST['action'] === 'change_password') {
+            $newPassword = trim($_POST['new_password'] ?? '');
+            if (strlen($newPassword) < 5) {
+                $message = '<div class="alert error">Пароль должен содержать минимум 5 символов.</div>';
+            } else {
+                if (file_put_contents($passFile, $newPassword)) {
+                    $message = '<div class="alert success">Пароль успешно изменен!</div>';
+                } else {
+                    $message = '<div class="alert error">Ошибка сохранения пароля. Проверьте права на папку config.</div>';
+                }
+            }
         }
     }
 }
@@ -210,6 +231,23 @@ $contact = $content['contact'] ?? [];
 
             <button type="submit" class="save-btn">💾 Сохранить изменения</button>
         </form>
+        
+        <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee;">
+        
+        <form method="POST">
+            <input type="hidden" name="action" value="change_password">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+            
+            <h2>🔐 Смена пароля</h2>
+            <div class="row">
+                <div class="col" style="flex: 0.7;">
+                    <input type="password" name="new_password" placeholder="Новый пароль (минимум 5 символов)" required minlength="5">
+                </div>
+                <div class="col" style="flex: 0.3;">
+                    <button type="submit" class="save-btn" style="margin-top: 0; background-color: #333;">Обновить пароль</button>
+                </div>
+            </div>
+        </form>
     </div>
 
     <script>
@@ -225,5 +263,115 @@ $contact = $content['contact'] ?? [];
             container.appendChild(row);
         }
     </script>
+
+    <?php
+    /**
+     * Синхронизация расписания из JSON в базу данных PostgreSQL
+     * Используется для связи админки с Telegram-ботом
+     */
+    function syncScheduleWithDatabase($schedule) {
+        try {
+            // Проверяем наличие файла с конфигом БД
+            $dbConfigPath = __DIR__ . '/../config/database.php';
+            
+            if (!file_exists($dbConfigPath)) {
+                // Пробуем получить из переменных окружения
+                $dbUrl = getenv('DATABASE_URL');
+                if (!$dbUrl) {
+                    // Используем дефолтное значение как в bot/database.py
+                    $dbUrl = 'postgresql+asyncpg://zumba_user:zumba_pass@db:5432/zumba_db';
+                }
+            } else {
+                $dbUrl = require $dbConfigPath;
+            }
+
+            // Парсим DATABASE_URL
+            // Формат: postgresql+asyncpg://user:pass@host:port/dbname
+            $parsed = parse_url(str_replace('postgresql+asyncpg://', 'postgresql://', $dbUrl));
+            
+            $user = $parsed['user'] ?? 'zumba_user';
+            $pass = $parsed['pass'] ?? 'zumba_pass';
+            $host = $parsed['host'] ?? 'db';
+            $port = $parsed['port'] ?? '5432';
+            $dbname = ltrim($parsed['path'] ?? '/zumba_db', '/');
+
+            // Подключение к БД
+            $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+            $pdo = new PDO($dsn, $user, $pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Маппинг дней недели
+            $dayMap = [
+                'Пн' => 1, 'Понедельник' => 1, 'Mon' => 1,
+                'Вт' => 2, 'Вторник' => 2, 'Tue' => 2,
+                'Ср' => 3, 'Среда' => 3, 'Wed' => 3,
+                'Чт' => 4, 'Четверг' => 4, 'Thu' => 4,
+                'Пт' => 5, 'Пятница' => 5, 'Fri' => 5,
+                'Сб' => 6, 'Суббота' => 6, 'Sat' => 6,
+                'Вс' => 7, 'Воскресенье' => 7, 'Sun' => 7
+            ];
+
+            // Маппинг программ
+            $programMap = [
+                'classic' => 'classic', 'zumba' => 'classic', 'fitness' => 'classic',
+                'gold' => 'gold', 'zumba gold' => 'gold'
+            ];
+
+            // Очищаем текущее расписание
+            $pdo->exec('DELETE FROM schedule');
+
+            // Вставляем новое расписание
+            $stmt = $pdo->prepare('
+                INSERT INTO schedule (day_of_week, time, program, is_active, capacity)
+                VALUES (:day, :time, :program, true, 20)
+            ');
+
+            foreach ($schedule as $item) {
+                $day = $item['day'] ?? '';
+                $timeStr = $item['time_and_program'] ?? '';
+
+                // Определяем день недели
+                $dayOfWeek = $dayMap[$day] ?? null;
+                if (!$dayOfWeek) {
+                    continue; // Пропускаем некорректные дни
+                }
+
+                // Извлекаем время из строки (например, "19:45 - Zumba fitness")
+                if (preg_match('/(\d{1,2}:\d{2})/', $timeStr, $matches)) {
+                    $time = $matches[1] . ':00';
+                } else {
+                    continue; // Пропускаем некорректное время
+                }
+
+                // Определяем программу
+                $timeStrLower = mb_strtolower($timeStr);
+                $program = 'classic'; // по умолчанию
+                foreach ($programMap as $key => $value) {
+                    if (strpos($timeStrLower, $key) !== false) {
+                        $program = $value;
+                        break;
+                    }
+                }
+
+                $stmt->execute([
+                    'day' => $dayOfWeek,
+                    'time' => $time,
+                    'program' => $program
+                ]);
+            }
+
+            return ['success' => true, 'message' => 'Синхронизировано записей: ' . count($schedule)];
+
+        } catch (PDOException $e) {
+            error_log('[Zumba Admin] Database sync error: ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Ошибка БД: ' . $e->getMessage()];
+        } catch (Exception $e) {
+            error_log('[Zumba Admin] Sync error: ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Ошибка: ' . $e->getMessage()];
+        }
+    }
+    ?>
 </body>
 </html>

@@ -48,6 +48,42 @@
         min-width: 48px;
         min-height: 48px;
     }
+
+    /* Map container - fix height on mobile */
+    .map-container {
+        min-height: 350px;
+        height: 350px;
+    }
+
+    /* Location info - stack vertically */
+    .location-content {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    /* Program cards - full width */
+    .program-card {
+        margin-bottom: 20px;
+    }
+
+    /* Review cards - better spacing */
+    .review-card {
+        min-width: calc(100% - 30px);
+        margin: 0 15px;
+    }
+
+    /* Stats - better mobile layout */
+    .stat-item {
+        padding: 15px;
+    }
+
+    /* Achievement items - better spacing */
+    .achievement-item {
+        margin-bottom: 12px;
+        padding: 10px;
+        background: var(--surface-1);
+        border-radius: 8px;
+    }
 }
 
 @media (max-width: 1024px) {

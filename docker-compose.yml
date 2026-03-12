@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: zumba_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-zumba_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-zumba_pass}
+      POSTGRES_DB: ${DB_NAME:-zumba_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  web:
+    image: nginx:alpine
+    container_name: zumba_web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - php
+      - bot
+    restart: always
+
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: zumba_php
+    volumes:
+      - ./:/var/www/html
+    restart: always
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: zumba_bot
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-zumba_user}:${DB_PASSWORD:-zumba_pass}@db:5432/${DB_NAME:-zumba_db}
+      TELEGRAM_TOKEN_FILE: /app/config/telegram_token.txt
+      ADMIN_ID_FILE: /app/config/telegram_chat_id.txt
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./bot:/app
+    depends_on:
+      - db
+    restart: always
+
+volumes:
+  postgres_data:
+

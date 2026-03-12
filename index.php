@@ -1,13 +1,7 @@
 <?php
 /**
  * Zumba Site - Главная страница
- * Генерация CSRF токена для защиты форм
  */
-session_start();
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-$csrf_token = $_SESSION['csrf_token'];
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -61,10 +55,10 @@ $csrf_token = $_SESSION['csrf_token'];
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Styles -->
-    <link rel="preload" href="styles.min.css" as="style">
-    <link rel="preload" href="responsive.min.css" as="style">
-    <link rel="stylesheet" href="styles.min.css">
-    <link rel="stylesheet" href="responsive.min.css">
+    <link rel="preload" href="styles.min.css?v=2.1" as="style">
+    <link rel="preload" href="responsive.min.css?v=2.1" as="style">
+    <link rel="stylesheet" href="styles.min.css?v=2.1">
+    <link rel="stylesheet" href="responsive.min.css?v=2.1">
     
     <!-- Yandex.Metrika counter -->
     <?php
@@ -109,6 +103,7 @@ $csrf_token = $_SESSION['csrf_token'];
             "latitude": 59.837058,
             "longitude": 30.242849
         },
+        "hasMap": "https://yandex.ru/maps/org/zumba_u_zaliva/99077668985?si=0pxbzfcp104m4ggn3bjbnyrv3m",
         "openingHoursSpecification": [
             {
                 "@type": "OpeningHoursSpecification",
@@ -635,20 +630,32 @@ $csrf_token = $_SESSION['csrf_token'];
                         </div>
                     </div>
                     <div class="schedule-info">
+                        <?php
+                            $contentFile = __DIR__ . '/data/content.json';
+                            $contentData = file_exists($contentFile) ? json_decode(file_get_contents($contentFile), true) : [];
+                            $pricesData = $contentData['prices'] ?? [];
+                            $scheduleData = $contentData['schedule'] ?? [];
+                        ?>
                         <h4>Абонементы:</h4>
                         <ul class="schedule-list">
-                            <li><span>8 занятий</span> <span>4800₽</span></li>
-                            <li><span>6 занятий</span> <span>3900₽</span></li>
-                            <li><span>4 занятия</span> <span>2800₽</span></li>
-                            <li><span>Разовое посещение</span> <span>750₽</span></li>
-                            <li><span>Пробная тренировка</span> <span>500₽</span></li>
+                            <li><span><?= htmlspecialchars($pricesData['8_lessons']['name'] ?? '8 занятий') ?></span> <span><?= htmlspecialchars($pricesData['8_lessons']['price'] ?? '4800₽') ?></span></li>
+                            <li><span><?= htmlspecialchars($pricesData['6_lessons']['name'] ?? '6 занятий') ?></span> <span><?= htmlspecialchars($pricesData['6_lessons']['price'] ?? '3900₽') ?></span></li>
+                            <li><span><?= htmlspecialchars($pricesData['4_lessons']['name'] ?? '4 занятия') ?></span> <span><?= htmlspecialchars($pricesData['4_lessons']['price'] ?? '2800₽') ?></span></li>
+                            <li><span><?= htmlspecialchars($pricesData['single']['name'] ?? 'Разовое посещение') ?></span> <span><?= htmlspecialchars($pricesData['single']['price'] ?? '750₽') ?></span></li>
+                            <li><span><?= htmlspecialchars($pricesData['trial']['name'] ?? 'Пробная тренировка') ?></span> <span><?= htmlspecialchars($pricesData['trial']['price'] ?? '500₽') ?></span></li>
                         </ul>
                         <h4>Расписание:</h4>
                         <ul class="schedule-list">
-                            <li><span>Пн</span> <span>19:45 - Zumba fitness</span></li>
-                            <li><span>Ср</span> <span>20:00 - Zumba fitness</span></li>
-                            <li><span>Пт</span> <span>10:30 - Zumba fitness</span></li>
-                            <li><span>Вс</span> <span>12:00 - Zumba Gold</span></li>
+                            <?php if (!empty($scheduleData)): ?>
+                                <?php foreach ($scheduleData as $item): ?>
+                                    <li><span><?= htmlspecialchars($item['day']) ?></span> <span><?= htmlspecialchars($item['time_and_program']) ?></span></li>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <li><span>Пн</span> <span>19:45 - Zumba fitness</span></li>
+                                <li><span>Ср</span> <span>20:00 - Zumba fitness</span></li>
+                                <li><span>Пт</span> <span>10:30 - Zumba fitness</span></li>
+                                <li><span>Вс</span> <span>12:00 - Zumba Gold</span></li>
+                            <?php endif; ?>
                         </ul>
                         <p class="cta-text">Не откладывай жизнь на завтра! Запишись на пробную тренировку!</p>
                     </div>
@@ -667,7 +674,6 @@ $csrf_token = $_SESSION['csrf_token'];
                     </div>
                 </div>
                 <form class="contact-form" id="contactForm" aria-label="Форма записи на тренировку" novalidate>
-                    <input type="hidden" name="csrf_token" id="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                     <div class="form-group">
                         <input type="text" id="name" name="name" required placeholder=" " 
                                aria-label="Ваше имя" 
@@ -692,9 +698,11 @@ $csrf_token = $_SESSION['csrf_token'];
                         <select id="program" name="program" required 
                                 aria-label="Выберите программу тренировок"
                                 aria-required="true">
-                            <option value="" disabled selected>Выберите программу</option>
+                            <option value="" disabled selected>Выберите вариант</option>
                             <option value="classic">Zumba Classic</option>
                             <option value="gold">Zumba Gold</option>
+                            <option value="trial">🌟 Пробная тренировка</option>
+                            <option value="single">🎟 Разовая тренировка</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -873,74 +881,7 @@ $csrf_token = $_SESSION['csrf_token'];
         </a>
     </div>
 
-    <!-- Yandex Maps API -->
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
-
-    <style>
-        /* Тёмная тема для Яндекс Карты (API v2.1) */
-        #yandex-map .ymaps-2-1-79-ground-pane,
-        #yandex-map .ymaps2179-ground-pane {
-            filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(90%);
-        }
-    </style>
-
+    <!-- Scripts -->
     <script src="script.min.js"></script>
-    
-    <script>
-        // Инициализация карты после загрузки API
-        function initYandexMap() {
-            console.log('Init Yandex Map, ymaps defined:', typeof ymaps !== 'undefined');
-            
-            if (typeof ymaps === 'undefined') {
-                console.error('Yandex Maps API не загрузился! Проверьте интернет-соединение.');
-                document.getElementById('yandex-map').innerHTML = '<div style="padding: 40px; text-align: center; color: #fff;"><p>🗺️ Карта не загрузилась</p><p>Проверьте интернет-соединение или отключите блокировщик рекламы</p></div>';
-                return;
-            }
-            
-            ymaps.ready(function() {
-                console.log('Yandex Maps ready');
-                
-                try {
-                    const map = new ymaps.Map('yandex-map', {
-                        center: [59.858046, 30.179368],
-                        zoom: 16,
-                        controls: ['zoomControl', 'fullscreenControl']
-                    });
-
-                    const myPlacemark = new ymaps.Placemark([59.858046, 30.179368], {
-                        hintContent: 'Зумба у залива',
-                        balloonContentHeader: 'Zumba с Александрой Мельниковой',
-                        balloonContentBody: '<div style="padding: 10px;"><strong>📍 Зумба у залива</strong><br>📍 ул. Маршала Захарова, 20Д<br>📞 +7 (921) 892-51-57<br><br>💃 Групповые тренировки Zumba</div>',
-                        balloonContentFooter: 'Пробная тренировка — 500₽'
-                    }, {
-                        preset: 'islands#pinkFitnessIcon'
-                    });
-
-                    map.geoObjects.add(myPlacemark);
-                    
-                    // Отключаем скролл зум по умолчанию (чтобы страница прокручивалась)
-                    map.behaviors.disable('scrollZoom');
-                    
-                    // Включаем зум при наведении на карту
-                    const mapContainer = document.getElementById('yandex-map');
-                    
-                    mapContainer.addEventListener('mouseenter', function() {
-                        map.behaviors.enable('scrollZoom');
-                    });
-                    
-                    mapContainer.addEventListener('mouseleave', function() {
-                        map.behaviors.disable('scrollZoom');
-                    });
-                    
-                    console.log('Map created successfully');
-                } catch (e) {
-                    console.error('Ошибка создания карты:', e);
-                    document.getElementById('yandex-map').innerHTML = '<div style="padding: 40px; text-align: center; color: #fff;"><p>🗺️ Ошибка загрузки карты</p><p>' + e.message + '</p></div>';
-                }
-            });
-        }
-
-        window.addEventListener('load', initYandexMap);
-    </script>
 </body>
 </html>

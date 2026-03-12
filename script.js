@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     FAQ.init();
     MetrikaGoals.init();
     ServiceWorkerHandler.init();
+    YandexMapLoader.init();
 });
 
 /**
@@ -451,26 +452,16 @@ const TiltEffect = {
 
 /**
  * Contact Form Module
- * Отправляет данные через серверный PHP-обработчик (send-form.php)
+ * Отправляет данные через серверный FastAPI обработчик
  */
 const ContactForm = {
     form: null,
-    submitUrl: 'send-form.php',
-    csrfToken: null,
+    submitUrl: '/api/leads', 
 
     init() {
         this.form = document.getElementById('contactForm');
         if (this.form) {
-            this.loadCsrfToken();
             this.addSubmitListener();
-        }
-    },
-
-    loadCsrfToken() {
-        // Получаем токен из скрытого поля (если сервер уже добавил его)
-        const csrfInput = document.getElementById('csrf_token');
-        if (csrfInput && csrfInput.value) {
-            this.csrfToken = csrfInput.value;
         }
     },
 
@@ -483,68 +474,39 @@ const ContactForm = {
 
     async handleSubmit() {
         const submitBtn = this.form.querySelector('button[type="submit"]');
-        
-        // Проверка на существование кнопки
-        if (!submitBtn) {
-            this.showInlineError('Ошибка формы. Попробуйте обновить страницу.');
-            return;
-        }
+        if (!submitBtn) return;
         
         const originalText = submitBtn.innerHTML;
-
-        // Clear previous messages
         this.clearMessages();
 
-        // Get form values
         const formData = new FormData(this.form);
         const data = Object.fromEntries(formData);
 
-        // Client-side validation
-        if (!this.validateForm(data)) {
-            return;
-        }
+        if (!this.validateForm(data)) return;
 
-        // Добавляем CSRF токен
-        if (!this.csrfToken) {
-            this.showInlineError('Ошибка безопасности. Обновите страницу и попробуйте снова.');
-            return;
-        }
-        data.csrf_token = this.csrfToken;
-
-        // Disable button and show loading state
         submitBtn.disabled = true;
         submitBtn.innerHTML = '⏳ Отправка...';
 
         try {
             const response = await fetch(this.submitUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: new URLSearchParams(data).toString()
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
             });
 
             const result = await response.json();
 
             if (response.ok && result.success) {
-                // Отправка цели в Яндекс.Метрику
                 if (typeof ym !== 'undefined') {
                     ym(106970869, 'reachGoal', 'form_submit');
                 }
-                // Обновляем CSRF токен для следующей отправки
-                if (result.csrf_token) {
-                    this.csrfToken = result.csrf_token;
-                    const csrfInput = document.getElementById('csrf_token');
-                    if (csrfInput) csrfInput.value = result.csrf_token;
-                }
-                this.showSuccessMessage();
+                this.showSuccessMessage(result.bot_url);
                 this.form.reset();
             } else {
                 throw new Error(result.error || 'Ошибка отправки');
             }
         } catch (error) {
-            this.showInlineError(error.message || 'Ошибка отправки. Позвоните нам!');
+            this.showInlineError(error.message || 'Ошибка отправки. Попробуйте Telegram напрямую!');
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
@@ -553,44 +515,28 @@ const ContactForm = {
 
     validateForm(data) {
         let isValid = true;
-
-        if (!data.name || data.name.trim().length < 2 || data.name.trim().length > 50) {
-            this.showInlineError('Пожалуйста, введите корректное имя (2-50 символов)');
+        if (!data.name || data.name.trim().length < 2) {
+            this.showInlineError('Введите имя');
             isValid = false;
         }
-
-        // Валидация телефона - российский формат
         const phoneClean = data.phone.replace(/[^\d+]/g, '');
-        const phoneValid = /^(\+7|8)\d{10}$/.test(phoneClean);
-        if (!data.phone || !phoneValid) {
-            this.showInlineError('Введите корректный номер телефона (например, +7 999 123-45-67)');
+        if (phoneClean.length < 10) {
+            this.showInlineError('Введите корректный номер');
             isValid = false;
         }
-
-        // Проверка чекбокса согласия
-        const privacyCheckbox = document.getElementById('privacy');
-        if (privacyCheckbox && !privacyCheckbox.checked) {
-            this.showInlineError('Необходимо согласие на обработку персональных данных');
-            isValid = false;
-        }
-
         return isValid;
     },
 
-    showSuccessMessage() {
+    showSuccessMessage(botUrl) {
         const successMsg = document.createElement('div');
         successMsg.className = 'form-message success';
         successMsg.innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <svg style="width: 60px; height: 60px; color: #00D9FF; margin-bottom: 20px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
-                </svg>
-                <h3 style="font-size: 1.5rem; margin-bottom: 10px;">Спасибо за заявку!</h3>
-                <p style="color: var(--color-text-secondary);">Я свяжусь с вами в ближайшее время</p>
+            <div style="text-align: center; padding: 20px;">
+                <h3 style="margin-bottom: 15px;">Заявка почти оформлена! 🎉</h3>
+                <p style="margin-bottom: 20px;">Нажмите кнопку ниже, чтобы подтвердить запись в Telegram и получать напоминания.</p>
+                <a href="${botUrl}" class="btn btn-primary" style="display: inline-block; padding: 12px 24px; text-decoration: none;">💎 Подтвердить в Telegram</a>
             </div>
         `;
-
         this.form.innerHTML = '';
         this.form.appendChild(successMsg);
     },
@@ -599,23 +545,15 @@ const ContactForm = {
         let messageEl = this.form.querySelector('.form-message');
         if (!messageEl) {
             messageEl = document.createElement('div');
-            messageEl.className = 'form-message';
+            messageEl.className = 'form-message error';
             this.form.insertBefore(messageEl, this.form.firstChild);
         }
-
-        messageEl.className = 'form-message error';
         messageEl.textContent = message;
-        messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
     clearMessages() {
         const messageEl = this.form.querySelector('.form-message');
-        if (messageEl) {
-            messageEl.remove();
-        }
-        this.form.querySelectorAll('.form-group.error').forEach(group => {
-            group.classList.remove('error');
-        });
+        if (messageEl) messageEl.remove();
     }
 };
 
@@ -1093,5 +1031,114 @@ const ServiceWorkerHandler = {
             </div>
         `;
         document.body.appendChild(notification);
+    }
+};
+
+/**
+ * Yandex Map Lazy Load Module
+ */
+const YandexMapLoader = {
+    mapContainer: null,
+    observer: null,
+    isLoaded: false,
+
+    init() {
+        this.mapContainer = document.getElementById('yandex-map');
+        if (!this.mapContainer) return;
+
+        if ('IntersectionObserver' in window) {
+            this.observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && !this.isLoaded) {
+                        this.loadMapScript();
+                        this.observer.unobserve(entry.target);
+                    }
+                });
+            }, { rootMargin: '300px 0px' });
+
+            this.observer.observe(this.mapContainer);
+        } else {
+            setTimeout(() => this.loadMapScript(), 2000);
+        }
+    },
+
+    loadMapScript() {
+        if (this.isLoaded) return;
+        this.isLoaded = true;
+
+        const script = document.createElement('script');
+        script.src = 'https://api-maps.yandex.ru/2.1/?lang=ru_RU';
+        script.type = 'text/javascript';
+
+        script.async = true;
+        
+        script.onload = () => {
+            if (typeof ymaps !== 'undefined') {
+                ymaps.ready(this.initMap.bind(this));
+            }
+        };
+        
+        script.onerror = () => {
+            this.mapContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #fff;"><p>🗺️ Карта не загрузилась</p><p>Проверьте интернет-соединение или отключите блокировщик рекламы</p></div>';
+        };
+        
+        document.body.appendChild(script);
+    },
+
+    initMap() {
+        try {
+            // Координаты клуба "Радуга" (ул. Маршала Захарова, 20Д)
+            // Унифицировано с Schema.org в index.php
+            const COORDS = [59.837058, 30.242849];
+
+            const map = new ymaps.Map('yandex-map', {
+                center: COORDS,
+                zoom: 17,
+                controls: ['zoomControl', 'fullscreenControl', 'geolocationControl']
+            });
+
+            const myPlacemark = new ymaps.Placemark(COORDS, {
+                hintContent: 'Зумба у залива — клуб Радуга',
+                balloonContentHeader: 'Zumba с Александрой Мельниковой',
+                balloonContentBody: '<div style="padding: 10px;"><strong>📍 Зумба у залива</strong><br>🏢 Фитнес-клуб «Радуга»<br>📍 ул. Маршала Захарова, 20Д<br>📞 +7 (921) 892-51-57<br><br>💃 Групповые тренировки Zumba<br>🚇 Метро Проспект Ветеранов (10 мин)<br>🅿️ Бесплатная парковка</div>',
+                balloonContentFooter: 'Пробная тренировка — 500₽'
+            }, {
+                preset: 'islands#pinkFitnessIcon'
+            });
+
+            map.geoObjects.add(myPlacemark);
+
+            // Отключаем зум колесиком по умолчанию (удобно для мобильных)
+            map.behaviors.disable('scrollZoom');
+
+            // Включаем зум при наведении курсора (для десктопа)
+            this.mapContainer.addEventListener('mouseenter', () => map.behaviors.enable('scrollZoom'));
+            this.mapContainer.addEventListener('mouseleave', () => map.behaviors.disable('scrollZoom'));
+
+            console.log('[YandexMap] Карта успешно загружена');
+
+        } catch (e) {
+            console.error('[YandexMap] Ошибка создания карты:', e);
+            this.mapContainer.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: #fff;">
+                    <p style="font-size: 2rem; margin-bottom: 10px;">🗺️</p>
+                    <p style="margin-bottom: 10px;"><strong>Карта не загрузилась</strong></p>
+                    <p style="font-size: 0.9rem; color: #ccc;">Возможные причины:</p>
+                    <ul style="text-align: left; display: inline-block; font-size: 0.85rem; color: #aaa; margin-top: 10px;">
+                        <li>Блокировщик рекламы (AdBlock, uBlock)</li>
+                        <li>Нет интернет-соединения</li>
+                        <li>Проблемы с API Яндекс.Карт</li>
+                    </ul>
+                    <p style="margin-top: 20px;">
+                        <a href="https://yandex.ru/maps/org/zumba_u_zaliva/99077668985?si=0pxbzfcp104m4ggn3bjbnyrv3m" 
+                           target="_blank" 
+                           rel="noopener" 
+                           style="display: inline-block; background: #FF2D75; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 15px;">
+                            📍 Открыть в Яндекс.Картах
+                        </a>
+                    </p>
+                </div>
+            `;
+        }
     }
 };
