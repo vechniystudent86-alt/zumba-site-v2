@@ -404,9 +404,7 @@ if (file_exists($contentFile)) {
 $prices = $content['prices'] ?? [];
 $schedule = $content['schedule'] ?? [];
 $contact = $content['contact'] ?? [];
-
-?>
-<!DOCTYPE html>
+?><!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
