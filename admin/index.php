@@ -153,9 +153,9 @@ function validateDayOfWeek(string $day): bool {
  * @return string|null Валидное время или null
  */
 function validateTime(string $timeStr): ?string {
-    if (preg_match('/(\d{1,2}:\d{2})/', $timeStr, $matches)) {
-        $hours = (int)$matches[1];
-        $minutes = (int)$matches[2];
+    if (preg_match('/(\d{1,2}):(\d{2})/', $timeStr, $matches)) {
+        $hours = isset($matches[1]) ? (int)$matches[1] : 0;
+        $minutes = isset($matches[2]) ? (int)$matches[2] : 0;
         if ($hours >= 0 && $hours <= 23 && $minutes >= 0 && $minutes <= 59) {
             return sprintf('%02d:%02d:00', $hours, $minutes);
         }
