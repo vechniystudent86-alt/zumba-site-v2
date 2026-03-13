@@ -30,6 +30,8 @@ services:
       context: .
       dockerfile: docker/php/Dockerfile
     container_name: zumba_php
+    environment:
+      DATABASE_URL: postgresql://zumba_user:zumba_pass@db:5432/zumba_db
     volumes:
       - ./:/var/www/html
     restart: always
