@@ -645,9 +645,9 @@ $contact = $content['contact'] ?? [];
                 'gold' => 'gold', 'zumba gold' => 'gold'
             ];
 
-            // Очищаем текущее расписание
-            logMessage('DEBUG', "$logPrefix Clearing existing schedule");
-            $pdo->exec('DELETE FROM schedule');
+            // Очищаем текущее расписание (помечаем как неактивные, чтобы не нарушать FK)
+            logMessage('DEBUG', "$logPrefix Deactivating existing schedule");
+            $pdo->exec('UPDATE schedule SET is_active = false WHERE is_active = true');
 
             // Вставляем новое расписание
             $stmt = $pdo->prepare('
