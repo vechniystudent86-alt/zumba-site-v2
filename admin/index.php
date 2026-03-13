@@ -1,25 +1,193 @@
 <?php
+/**
+ * Zumba Admin Panel - Исправленная версия
+ * 
+ * Улучшения:
+ * - Настройка session_save_path() для Docker
+ * - Детальное логирование ошибок PDO
+ * - Исправленная генерация CSRF токена
+ * - Валидация и санитизация входных данных
+ * - Логирование в файл /var/log/admin.log
+ */
+
+// ============================================================================
+// 1. НАСТРОЙКА СЕССИЙ ДЛЯ DOCKER
+// ============================================================================
+$dockerSessionPath = '/tmp/sessions';
+if (!is_dir($dockerSessionPath)) {
+    @mkdir($dockerSessionPath, 0777, true);
+}
+session_save_path($dockerSessionPath);
 session_start();
 
+// ============================================================================
+// 2. НАСТРОЙКА ЛОГИРОВАНИЯ
+// ============================================================================
+define('LOG_FILE', '/var/log/admin.log');
+define('LOG_FILE_ALT', __DIR__ . '/../logs/admin.log');
+
+/**
+ * Функция логирования с поддержкой разных уровней
+ * @param string $level Уровень лога (INFO, WARNING, ERROR, DEBUG)
+ * @param string $message Сообщение
+ * @param array $context Дополнительный контекст
+ */
+function logMessage(string $level, string $message, array $context = []): void {
+    $timestamp = date('Y-m-d H:i:s');
+    $contextStr = !empty($context) ? ' ' . json_encode($context, JSON_UNESCAPED_UNICODE) : '';
+    $logLine = "[$timestamp] [$level] $message$contextStr" . PHP_EOL;
+    
+    // Пробуем записать в основной лог
+    $logPath = LOG_FILE;
+    if (!is_writable(dirname($logPath))) {
+        // Альтернативный путь в директории проекта
+        $logPath = LOG_FILE_ALT;
+        $logDir = dirname($logPath);
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+    }
+    
+    @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);
+    
+    // Также логируем в error_log PHP для отладки
+    error_log("[Zumba Admin] [$level] $message");
+}
+
+// ============================================================================
+// КОНФИГУРАЦИЯ
+// ============================================================================
 $passFile = __DIR__ . '/../config/admin_pass.txt';
 $contentFile = __DIR__ . '/../data/content.json';
 
-// Авторизация
+// Инициализация логирования при старте
+logMessage('INFO', 'Admin panel accessed', ['ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
+
+// ============================================================================
+// 3. ИСПРАВЛЕННАЯ ГЕНЕРАЦИЯ CSRF ТОКЕНА
+// ============================================================================
+/**
+ * Получает или создает CSRF токен для сессии
+ * Токен генерируется только один раз за сессию
+ */
+function getCsrfToken(): string {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        logMessage('DEBUG', 'CSRF token generated for session');
+    }
+    return $_SESSION['csrf_token'];
+}
+
+/**
+ * Проверяет валидность CSRF токена
+ * @param string $token Токен для проверки
+ * @return bool
+ */
+function validateCsrfToken(string $token): bool {
+    if (empty($token) || empty($_SESSION['csrf_token'])) {
+        return false;
+    }
+    return hash_equals($_SESSION['csrf_token'], $token);
+}
+
+// ============================================================================
+// 4. ФУНКЦИИ ВАЛИДАЦИИ И САНИТИЗАЦИИ
+// ============================================================================
+/**
+ * Санитизация строковых данных
+ * @param mixed $data Входные данные
+ * @return string Очищенная строка
+ */
+function sanitizeString($data): string {
+    if (!is_scalar($data)) {
+        return '';
+    }
+    $data = trim((string)$data);
+    // Удаляем потенциально опасные теги, но оставляем базовые символы
+    $data = strip_tags($data);
+    // Экранируем HTML спецсимволы для безопасного отображения
+    return htmlspecialchars($data, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+/**
+ * Санитизация для сохранения в JSON (без HTML экранирования)
+ * @param mixed $data Входные данные
+ * @return string Очищенная строка
+ */
+function sanitizeForStorage($data): string {
+    if (!is_scalar($data)) {
+        return '';
+    }
+    $data = trim((string)$data);
+    // Удаляем только теги, сохраняя спецсимволы для JSON
+    return strip_tags($data);
+}
+
+/**
+ * Валидация телефонного номера
+ * @param string $phone Номер для валидации
+ * @return bool
+ */
+function validatePhone(string $phone): bool {
+    // Удаляем все кроме цифр и +
+    $clean = preg_replace('/[^\d+]/', '', $phone);
+    // Проверяем минимальную длину (с учетом + и кода страны)
+    return strlen($clean) >= 10;
+}
+
+/**
+ * Валидация дня недели
+ * @param string $day День недели
+ * @return bool
+ */
+function validateDayOfWeek(string $day): bool {
+    $validDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс', 
+                  'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье',
+                  'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return in_array($day, $validDays, true);
+}
+
+/**
+ * Валидация времени (формат ЧЧ:ММ)
+ * @param string $timeStr Строка времени
+ * @return string|null Валидное время или null
+ */
+function validateTime(string $timeStr): ?string {
+    if (preg_match('/(\d{1,2}:\d{2})/', $timeStr, $matches)) {
+        $hours = (int)$matches[1];
+        $minutes = (int)$matches[2];
+        if ($hours >= 0 && $hours <= 23 && $minutes >= 0 && $minutes <= 59) {
+            return sprintf('%02d:%02d:00', $hours, $minutes);
+        }
+    }
+    return null;
+}
+
+// ============================================================================
+// АВТОРИЗАЦИЯ
+// ============================================================================
 $adminPass = file_exists($passFile) ? trim(file_get_contents($passFile)) : 'zumba2024';
 
 if (isset($_GET['logout'])) {
+    logMessage('INFO', 'Admin logout', ['session_id' => session_id()]);
     session_destroy();
     header('Location: index.php');
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password'])) {
-    if ($_POST['password'] === $adminPass) {
+    $attemptedPass = trim($_POST['password']);
+    logMessage('INFO', 'Login attempt', ['ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
+    
+    if ($attemptedPass === $adminPass) {
         $_SESSION['admin_logged_in'] = true;
+        $_SESSION['login_time'] = time();
+        logMessage('INFO', 'Login successful', ['session_id' => session_id()]);
         header('Location: index.php');
         exit;
     } else {
         $error = "Неверный пароль!";
+        logMessage('WARNING', 'Login failed - wrong password', ['ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
     }
 }
 
@@ -45,7 +213,7 @@ if (empty($_SESSION['admin_logged_in'])) {
     <body>
         <div class="login-box">
             <h2>Вход</h2>
-            <?php if (!empty($error)): ?><div class="error"><?= $error ?></div><?php endif; ?>
+            <?php if (!empty($error)): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
             <form method="POST">
                 <input type="password" name="password" placeholder="Пароль" required autofocus>
                 <button type="submit">Войти</button>
@@ -57,78 +225,182 @@ if (empty($_SESSION['admin_logged_in'])) {
     exit;
 }
 
-// --- Обработка сохранения ---
+// ============================================================================
+// ОБРАБОТКА СОХРАНЕНИЯ
+// ============================================================================
 $message = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    logMessage('INFO', 'Action requested', ['action' => $_POST['action']]);
+    
     // Валидация CSRF
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+    if (!validateCsrfToken($_POST['csrf_token'] ?? '')) {
         $message = '<div class="alert error">Ошибка безопасности (CSRF).</div>';
+        logMessage('ERROR', 'CSRF validation failed', ['ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
     } else {
         if ($_POST['action'] === 'save') {
-            // Собираем данные
-            $newContent = [
-                'prices' => [
-                    '8_lessons' => ['name' => $_POST['price_8_name'], 'price' => $_POST['price_8_val']],
-                    '6_lessons' => ['name' => $_POST['price_6_name'], 'price' => $_POST['price_6_val']],
-                    '4_lessons' => ['name' => $_POST['price_4_name'], 'price' => $_POST['price_4_val']],
-                    'single' => ['name' => $_POST['price_1_name'], 'price' => $_POST['price_1_val']],
-                    'trial' => ['name' => $_POST['price_trial_name'], 'price' => $_POST['price_trial_val']],
-                ],
-                'schedule' => [],
-                'contact' => [
-                    'phone' => $_POST['contact_phone'],
-                    'phone_raw' => preg_replace('/[^\d+]/', '', $_POST['contact_phone']),
-                    'address' => $_POST['contact_address']
-                ]
-            ];
+            try {
+                // 5. ВАЛИДАЦИЯ И САНИТИЗАЦИЯ ВХОДНЫХ ДАННЫХ
+                $pricesData = [
+                    '8_lessons' => [
+                        'name' => sanitizeForStorage($_POST['price_8_name'] ?? '8 занятий'),
+                        'price' => sanitizeForStorage($_POST['price_8_val'] ?? '4800₽')
+                    ],
+                    '6_lessons' => [
+                        'name' => sanitizeForStorage($_POST['price_6_name'] ?? '6 занятий'),
+                        'price' => sanitizeForStorage($_POST['price_6_val'] ?? '3900₽')
+                    ],
+                    '4_lessons' => [
+                        'name' => sanitizeForStorage($_POST['price_4_name'] ?? '4 занятия'),
+                        'price' => sanitizeForStorage($_POST['price_4_val'] ?? '2800₽')
+                    ],
+                    'single' => [
+                        'name' => sanitizeForStorage($_POST['price_1_name'] ?? 'Разовое посещение'),
+                        'price' => sanitizeForStorage($_POST['price_1_val'] ?? '750₽')
+                    ],
+                    'trial' => [
+                        'name' => sanitizeForStorage($_POST['price_trial_name'] ?? 'Пробная тренировка'),
+                        'price' => sanitizeForStorage($_POST['price_trial_val'] ?? '500₽')
+                    ],
+                ];
 
-            // Расписание (динамическое)
-            if (isset($_POST['schedule_day']) && is_array($_POST['schedule_day'])) {
-                for ($i = 0; $i < count($_POST['schedule_day']); $i++) {
-                    $day = trim($_POST['schedule_day'][$i]);
-                    $time = trim($_POST['schedule_time'][$i]);
-                    if ($day !== '' || $time !== '') {
-                        $newContent['schedule'][] = ['day' => $day, 'time_and_program' => $time];
+                // Валидация цен (проверка на пустые значения)
+                foreach ($pricesData as $key => $priceInfo) {
+                    if (empty($priceInfo['name']) || empty($priceInfo['price'])) {
+                        logMessage('WARNING', "Empty price data for $key");
                     }
                 }
-            }
 
-            // Сохранение в JSON
-            if (file_put_contents($contentFile, json_encode($newContent, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT))) {
-                $message = '<div class="alert success">Изменения успешно сохранены!</div>';
+                // Обработка расписания
+                $scheduleData = [];
+                if (isset($_POST['schedule_day']) && is_array($_POST['schedule_day'])) {
+                    $scheduleTimes = $_POST['schedule_time'] ?? [];
+                    
+                    for ($i = 0; $i < count($_POST['schedule_day']); $i++) {
+                        $day = trim($_POST['schedule_day'][$i] ?? '');
+                        $time = trim($scheduleTimes[$i] ?? '');
+                        
+                        // Пропускаем полностью пустые строки
+                        if ($day === '' && $time === '') {
+                            continue;
+                        }
+                        
+                        // Валидация дня недели (предупреждение, но не блокировка)
+                        if ($day !== '' && !validateDayOfWeek($day)) {
+                            logMessage('WARNING', 'Invalid day of week', ['day' => $day]);
+                        }
+                        
+                        // Валидация времени
+                        if ($time !== '' && validateTime($time) === null) {
+                            logMessage('WARNING', 'Invalid time format', ['time' => $time]);
+                        }
+                        
+                        $scheduleData[] = [
+                            'day' => sanitizeForStorage($day),
+                            'time_and_program' => sanitizeForStorage($time)
+                        ];
+                    }
+                }
+
+                // Валидация контактов
+                $phoneRaw = $_POST['contact_phone'] ?? '';
+                if (!validatePhone($phoneRaw)) {
+                    logMessage('WARNING', 'Invalid phone number format', ['phone' => $phoneRaw]);
+                }
                 
+                $contactData = [
+                    'phone' => sanitizeForStorage($phoneRaw),
+                    'phone_raw' => preg_replace('/[^\d+]/', '', $phoneRaw),
+                    'address' => sanitizeForStorage($_POST['contact_address'] ?? '')
+                ];
+
+                // Собираем все данные
+                $newContent = [
+                    'prices' => $pricesData,
+                    'schedule' => $scheduleData,
+                    'contact' => $contactData
+                ];
+
+                logMessage('DEBUG', 'Data prepared for saving', ['content' => $newContent]);
+
+                // Сохранение в JSON
+                $jsonContent = json_encode($newContent, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+                if ($jsonContent === false) {
+                    throw new Exception('JSON encode error: ' . json_last_error_msg());
+                }
+                
+                $bytesWritten = file_put_contents($contentFile, $jsonContent);
+                if ($bytesWritten === false) {
+                    throw new Exception('Failed to write content file');
+                }
+                
+                logMessage('INFO', 'Content saved successfully', ['bytes' => $bytesWritten]);
+                $message = '<div class="alert success">Изменения успешно сохранены!</div>';
+
                 // Синхронизация с базой данных бота
-                $syncResult = syncScheduleWithDatabase($newContent['schedule']);
+                $syncResult = syncScheduleWithDatabase($scheduleData);
                 if ($syncResult['success']) {
                     $message .= '<div class="alert success">✅ Расписание синхронизировано с ботом!</div>';
+                    logMessage('INFO', 'Database sync successful', ['records' => $syncResult['records_count'] ?? 0]);
                 } else {
                     $message .= '<div class="alert error">⚠️ Ошибка синхронизации с ботом: ' . htmlspecialchars($syncResult['error']) . '</div>';
+                    logMessage('ERROR', 'Database sync failed', ['error' => $syncResult['error']]);
                 }
-            } else {
-                $message = '<div class="alert error">Ошибка сохранения файла. Проверьте права на запись.</div>';
+                
+            } catch (Exception $e) {
+                $message = '<div class="alert error">Ошибка сохранения: ' . htmlspecialchars($e->getMessage()) . '</div>';
+                logMessage('ERROR', 'Save operation failed', ['exception' => $e->getMessage()]);
             }
+            
         } elseif ($_POST['action'] === 'change_password') {
-            $newPassword = trim($_POST['new_password'] ?? '');
-            if (strlen($newPassword) < 5) {
-                $message = '<div class="alert error">Пароль должен содержать минимум 5 символов.</div>';
-            } else {
-                if (file_put_contents($passFile, $newPassword)) {
-                    $message = '<div class="alert success">Пароль успешно изменен!</div>';
+            try {
+                $newPassword = trim($_POST['new_password'] ?? '');
+                
+                // Валидация пароля
+                if (strlen($newPassword) < 5) {
+                    $message = '<div class="alert error">Пароль должен содержать минимум 5 символов.</div>';
+                    logMessage('WARNING', 'Password change failed - too short', ['length' => strlen($newPassword)]);
                 } else {
-                    $message = '<div class="alert error">Ошибка сохранения пароля. Проверьте права на папку config.</div>';
+                    // Дополнительная валидация - проверка на простые пароли
+                    if (in_array(strtolower($newPassword), ['password', '12345', 'admin', 'zumba'], true)) {
+                        $message = '<div class="alert error">Пароль слишком простой. Используйте более сложный пароль.</div>';
+                        logMessage('WARNING', 'Password change failed - too simple');
+                    } else {
+                        $bytesWritten = file_put_contents($passFile, $newPassword);
+                        if ($bytesWritten === false) {
+                            throw new Exception('Failed to write password file');
+                        }
+                        
+                        logMessage('INFO', 'Password changed successfully');
+                        $message = '<div class="alert success">Пароль успешно изменен!</div>';
+                        
+                        // Инвалидация текущего токена при смене пароля
+                        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                    }
                 }
+            } catch (Exception $e) {
+                $message = '<div class="alert error">Ошибка смены пароля: ' . htmlspecialchars($e->getMessage()) . '</div>';
+                logMessage('ERROR', 'Password change failed', ['exception' => $e->getMessage()]);
             }
         }
     }
 }
 
-// Генерация токена
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+// Генерация токена (исправлено - токеном управляет функция getCsrfToken)
+$csrfToken = getCsrfToken();
 
 // Чтение текущих данных
-$content = file_exists($contentFile) ? json_decode(file_get_contents($contentFile), true) : [];
+$content = [];
+if (file_exists($contentFile)) {
+    $fileContent = file_get_contents($contentFile);
+    $content = json_decode($fileContent, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        logMessage('ERROR', 'JSON decode error', ['error' => json_last_error_msg()]);
+        $message = '<div class="alert error">Ошибка чтения данных. Файл поврежден.</div>';
+        $content = [];
+    }
+}
+
 $prices = $content['prices'] ?? [];
 $schedule = $content['schedule'] ?? [];
 $contact = $content['contact'] ?? [];
@@ -151,6 +423,7 @@ $contact = $content['contact'] ?? [];
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
         input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         .row { display: flex; gap: 15px; margin-bottom: 10px; align-items: center;}
         .col { flex: 1; }
         button.save-btn { background-color: #FF2D75; color: white; border: none; padding: 12px 25px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 20px; }
@@ -160,6 +433,7 @@ $contact = $content['contact'] ?? [];
         .alert { padding: 15px; margin-bottom: 20px; border-radius: 4px; }
         .alert.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .alert.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .session-info { font-size: 12px; color: #888; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -171,13 +445,13 @@ $contact = $content['contact'] ?? [];
 
     <div class="container">
         <?= $message ?>
-        
+
         <form method="POST">
             <input type="hidden" name="action" value="save">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
 
             <h2>💰 Цены на абонементы</h2>
-            
+
             <div class="row">
                 <div class="col"><label>Название (8 занятий)</label><input type="text" name="price_8_name" value="<?= htmlspecialchars($prices['8_lessons']['name'] ?? '8 занятий') ?>"></div>
                 <div class="col"><label>Цена</label><input type="text" name="price_8_val" value="<?= htmlspecialchars($prices['8_lessons']['price'] ?? '4800₽') ?>"></div>
@@ -230,14 +504,18 @@ $contact = $content['contact'] ?? [];
             </div>
 
             <button type="submit" class="save-btn">💾 Сохранить изменения</button>
+            
+            <div class="session-info">
+                Сессия активна с: <?= date('d.m.Y H:i', $_SESSION['login_time'] ?? time()) ?>
+            </div>
         </form>
-        
+
         <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee;">
-        
+
         <form method="POST">
             <input type="hidden" name="action" value="change_password">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-            
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+
             <h2>🔐 Смена пароля</h2>
             <div class="row">
                 <div class="col" style="flex: 0.7;">
@@ -268,20 +546,30 @@ $contact = $content['contact'] ?? [];
     /**
      * Синхронизация расписания из JSON в базу данных PostgreSQL
      * Используется для связи админки с Telegram-ботом
+     * 
+     * @param array $schedule Массив расписания
+     * @return array Результат операции ['success' => bool, 'error' => string, 'records_count' => int]
      */
     function syncScheduleWithDatabase($schedule) {
+        $logPrefix = '[Zumba Admin DB Sync]';
+        
         try {
+            logMessage('INFO', "$logPrefix Starting database sync", ['records_count' => count($schedule)]);
+            
             // Проверяем наличие файла с конфигом БД
             $dbConfigPath = __DIR__ . '/../config/database.php';
-            
+
             if (!file_exists($dbConfigPath)) {
+                logMessage('DEBUG', "$logPrefix Database config file not found, using environment variables");
                 // Пробуем получить из переменных окружения
                 $dbUrl = getenv('DATABASE_URL');
                 if (!$dbUrl) {
                     // Используем дефолтное значение как в bot/database.py
                     $dbUrl = 'postgresql+asyncpg://zumba_user:zumba_pass@db:5432/zumba_db';
+                    logMessage('DEBUG', "$logPrefix Using default DATABASE_URL");
                 }
             } else {
+                logMessage('DEBUG', "$logPrefix Loading database config from file");
                 $dbUrl = require $dbConfigPath;
             }
 
@@ -289,18 +577,56 @@ $contact = $content['contact'] ?? [];
             // Формат: postgresql+asyncpg://user:pass@host:port/dbname
             $parsed = parse_url(str_replace('postgresql+asyncpg://', 'postgresql://', $dbUrl));
             
+            if ($parsed === false) {
+                throw new Exception('Failed to parse DATABASE_URL');
+            }
+
             $user = $parsed['user'] ?? 'zumba_user';
             $pass = $parsed['pass'] ?? 'zumba_pass';
             $host = $parsed['host'] ?? 'db';
             $port = $parsed['port'] ?? '5432';
             $dbname = ltrim($parsed['path'] ?? '/zumba_db', '/');
 
-            // Подключение к БД
-            $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
-            $pdo = new PDO($dsn, $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            logMessage('DEBUG', "$logPrefix Database connection params", [
+                'host' => $host,
+                'port' => $port,
+                'dbname' => $dbname,
+                'user' => $user
             ]);
+
+            // ========================================================================
+            // 2. УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК PDO
+            // ========================================================================
+            $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+            
+            try {
+                $pdo = new PDO($dsn, $user, $pass, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                    PDO::ATTR_PERSISTENT => false
+                ]);
+                logMessage('INFO', "$logPrefix Database connection established");
+            } catch (PDOException $connError) {
+                // Детальное логирование ошибки подключения
+                $errorDetails = [
+                    'code' => $connError->getCode(),
+                    'message' => $connError->getMessage(),
+                    'dsn' => $dsn,
+                    'host' => $host
+                ];
+                logMessage('ERROR', "$logPrefix Database connection failed", $errorDetails);
+                throw new Exception('Не удалось подключиться к базе данных. Проверьте настройки подключения.');
+            }
+
+            // Проверка подключения перед синхронизацией
+            try {
+                $pdo->query('SELECT 1');
+                logMessage('DEBUG', "$logPrefix Database connection verified");
+            } catch (PDOException $pingError) {
+                logMessage('ERROR', "$logPrefix Database ping failed", ['error' => $pingError->getMessage()]);
+                throw new Exception('Потеряно соединение с базой данных.');
+            }
 
             // Маппинг дней недели
             $dayMap = [
@@ -320,6 +646,7 @@ $contact = $content['contact'] ?? [];
             ];
 
             // Очищаем текущее расписание
+            logMessage('DEBUG', "$logPrefix Clearing existing schedule");
             $pdo->exec('DELETE FROM schedule');
 
             // Вставляем новое расписание
@@ -328,20 +655,26 @@ $contact = $content['contact'] ?? [];
                 VALUES (:day, :time, :program, true, 20)
             ');
 
-            foreach ($schedule as $item) {
+            $insertedCount = 0;
+            $skippedCount = 0;
+
+            foreach ($schedule as $index => $item) {
                 $day = $item['day'] ?? '';
                 $timeStr = $item['time_and_program'] ?? '';
 
                 // Определяем день недели
                 $dayOfWeek = $dayMap[$day] ?? null;
                 if (!$dayOfWeek) {
+                    logMessage('WARNING', "$logPrefix Skipping record $index - invalid day", ['day' => $day]);
+                    $skippedCount++;
                     continue; // Пропускаем некорректные дни
                 }
 
                 // Извлекаем время из строки (например, "19:45 - Zumba fitness")
-                if (preg_match('/(\d{1,2}:\d{2})/', $timeStr, $matches)) {
-                    $time = $matches[1] . ':00';
-                } else {
+                $time = validateTime($timeStr);
+                if ($time === null) {
+                    logMessage('WARNING', "$logPrefix Skipping record $index - invalid time", ['time_str' => $timeStr]);
+                    $skippedCount++;
                     continue; // Пропускаем некорректное время
                 }
 
@@ -355,21 +688,63 @@ $contact = $content['contact'] ?? [];
                     }
                 }
 
-                $stmt->execute([
-                    'day' => $dayOfWeek,
-                    'time' => $time,
-                    'program' => $program
-                ]);
+                try {
+                    $stmt->execute([
+                        'day' => $dayOfWeek,
+                        'time' => $time,
+                        'program' => $program
+                    ]);
+                    $insertedCount++;
+                    logMessage('DEBUG', "$logPrefix Inserted schedule record", [
+                        'day' => $dayOfWeek,
+                        'time' => $time,
+                        'program' => $program
+                    ]);
+                } catch (PDOException $insertError) {
+                    logMessage('ERROR', "$logPrefix Failed to insert record $index", [
+                        'error' => $insertError->getMessage(),
+                        'data' => ['day' => $dayOfWeek, 'time' => $time, 'program' => $program]
+                    ]);
+                    // Продолжаем обработку остальных записей
+                }
             }
 
-            return ['success' => true, 'message' => 'Синхронизировано записей: ' . count($schedule)];
+            logMessage('INFO', "$logPrefix Sync completed", [
+                'total' => count($schedule),
+                'inserted' => $insertedCount,
+                'skipped' => $skippedCount
+            ]);
+
+            return [
+                'success' => true, 
+                'message' => "Синхронизировано записей: $insertedCount",
+                'records_count' => $insertedCount
+            ];
 
         } catch (PDOException $e) {
-            error_log('[Zumba Admin] Database sync error: ' . $e->getMessage());
-            return ['success' => false, 'error' => 'Ошибка БД: ' . $e->getMessage()];
+            // Детальное логирование всех PDO ошибок
+            $errorDetails = [
+                'code' => $e->getCode(),
+                'message' => $e->getMessage(),
+                'sql_state' => $e->getCode(),
+                'trace' => $e->getTraceAsString()
+            ];
+            logMessage('ERROR', "$logPrefix PDO Exception", $errorDetails);
+            
+            return [
+                'success' => false, 
+                'error' => 'Ошибка базы данных: ' . $e->getMessage()
+            ];
         } catch (Exception $e) {
-            error_log('[Zumba Admin] Sync error: ' . $e->getMessage());
-            return ['success' => false, 'error' => 'Ошибка: ' . $e->getMessage()];
+            logMessage('ERROR', "$logPrefix General Exception", [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                'success' => false, 
+                'error' => 'Ошибка: ' . $e->getMessage()
+            ];
         }
     }
     ?>

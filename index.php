@@ -55,10 +55,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Styles -->
-    <link rel="preload" href="styles.min.css?v=2.1" as="style">
-    <link rel="preload" href="responsive.min.css?v=2.1" as="style">
-    <link rel="stylesheet" href="styles.min.css?v=2.1">
-    <link rel="stylesheet" href="responsive.min.css?v=2.1">
+    <link rel="preload" href="styles.min.css?v=2.2" as="style">
+    <link rel="preload" href="responsive.min.css?v=2.2" as="style">
+    <link rel="stylesheet" href="styles.min.css?v=2.2">
+    <link rel="stylesheet" href="responsive.min.css?v=2.2">
     
     <!-- Yandex.Metrika counter -->
     <?php
@@ -354,9 +354,9 @@
                 <div class="image-container">
                     <div class="image-frame">
                         <picture>
-                            <source srcset="hero-photo-320.webp 320w, hero-photo-480.webp 480w, hero-photo-640.webp 640w, hero-photo-800.webp 800w" sizes="(max-width: 480px) 280px, (max-width: 768px) 350px, 480px" type="image/webp">
-                            <source srcset="hero-photo-320.png 320w, hero-photo-480.png 480w, hero-photo-640.png 640w, hero-photo-800.png 800w" sizes="(max-width: 480px) 280px, (max-width: 768px) 350px, 480px" type="image/png">
-                            <img src="hero-photo.png?v=3" alt="Александра Мельникова — профессиональный инструктор Zumba в Санкт-Петербурге" width="480" height="480" loading="eager" fetchpriority="high">
+                            <source srcset="hero-photo-320.webp 320w, hero-photo-480.webp 480w, hero-photo-640.webp 640w, hero-photo-800.webp 800w" sizes="(max-width: 480px) 240px, (max-width: 768px) 360px, 480px" type="image/webp">
+                            <source srcset="hero-photo-320.png 320w, hero-photo-480.png 480w, hero-photo-640.png 640w, hero-photo-800.png 800w" sizes="(max-width: 480px) 240px, (max-width: 768px) 360px, 480px" type="image/png">
+                            <img src="hero-photo.png?v=6" alt="Александра Мельникова — профессиональный инструктор Zumba в Санкт-Петербурге" width="960" height="1280" loading="eager" fetchpriority="high">
                         </picture>
                     </div>
                     <div class="image-ring ring-1"></div>
@@ -382,9 +382,9 @@
                 <div class="about-image">
                     <div class="image-card">
                         <picture>
-                            <source srcset="hero-photo-320.webp 320w, hero-photo-480.webp 480w, hero-photo-640.webp 640w" sizes="(max-width: 480px) 280px, (max-width: 768px) 350px, 400px" type="image/webp">
-                            <source srcset="hero-photo-320.png 320w, hero-photo-480.png 480w, hero-photo-640.png 640w" sizes="(max-width: 480px) 280px, (max-width: 768px) 350px, 400px" type="image/png">
-                            <img src="hero-photo.png?v=4" alt="Александра Мельникова — сертифицированный инструктор Zumba в Санкт-Петербурге" width="400" height="400" loading="lazy" decoding="async">
+                            <source srcset="hero-photo-320.webp 320w, hero-photo-480.webp 480w, hero-photo-640.webp 640w" sizes="(max-width: 480px) 240px, (max-width: 768px) 300px, 400px" type="image/webp">
+                            <source srcset="hero-photo-320.png 320w, hero-photo-480.png 480w, hero-photo-640.png 640w" sizes="(max-width: 480px) 240px, (max-width: 768px) 300px, 400px" type="image/png">
+                            <img src="hero-photo.png?v=6" alt="Александра Мельникова — сертифицированный инструктор Zumba в Санкт-Петербурге" width="720" height="960" loading="lazy" decoding="async">
                         </picture>
                         <div class="image-overlay"></div>
                     </div>
