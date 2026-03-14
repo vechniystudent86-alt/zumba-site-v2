@@ -70,6 +70,11 @@ class BookingFlow(StatesGroup):
     waiting_for_name = State()
     waiting_for_phone = State()
 
+class AdminEditFlow(StatesGroup):
+    waiting_for_price = State()
+    waiting_for_contact = State()
+    waiting_for_schedule = State()
+
 # --- Клавиатуры ---
 def get_main_kb(is_admin_user=False):
     buttons = [
@@ -293,22 +298,41 @@ async def finalize_booking(message: Message, state: FSMContext):
 
 @dp.message(F.text == "💰 Цены")
 async def show_prices(message: Message):
+    async with AsyncSessionLocal() as session:
+        prices = {
+            '8_lessons_name': await database.get_setting(session, 'price_8_lessons_name', '8 занятий'),
+            '8_lessons_price': await database.get_setting(session, 'price_8_lessons_price', '4800₽'),
+            '6_lessons_name': await database.get_setting(session, 'price_6_lessons_name', '6 занятий'),
+            '6_lessons_price': await database.get_setting(session, 'price_6_lessons_price', '3900₽'),
+            '4_lessons_name': await database.get_setting(session, 'price_4_lessons_name', '4 занятия'),
+            '4_lessons_price': await database.get_setting(session, 'price_4_lessons_price', '2800₽'),
+            'single_name': await database.get_setting(session, 'price_single_name', 'Разовое посещение'),
+            'single_price': await database.get_setting(session, 'price_single_price', '750₽'),
+            'trial_name': await database.get_setting(session, 'price_trial_name', 'Пробная тренировка'),
+            'trial_price': await database.get_setting(session, 'price_trial_price', '500₽'),
+        }
+    
     text = (
         "<b>💰 Стоимость занятий:</b>\n\n"
-        "▪️ Пробное занятие — <b>Бесплатно</b>\n"
-        "▪️ Разовое занятие — <b>800₽</b>\n"
-        "▪️ Абонемент 4 занятия — <b>2800₽</b>\n"
-        "▪️ Абонемент 8 занятий — <b>4800₽</b>\n"
+        f"▪️ {prices['trial_name']} — <b>{prices['trial_price']}</b>\n"
+        f"▪️ {prices['single_name']} — <b>{prices['single_price']}</b>\n"
+        f"▪️ {prices['4_lessons_name']} — <b>{prices['4_lessons_price']}</b>\n"
+        f"▪️ {prices['6_lessons_name']} — <b>{prices['6_lessons_price']}</b>\n"
+        f"▪️ {prices['8_lessons_name']} — <b>{prices['8_lessons_price']}</b>\n"
     )
     await message.answer(text, parse_mode="HTML")
 
 @dp.message(F.text == "📍 Адрес")
 async def show_address(message: Message):
+    async with AsyncSessionLocal() as session:
+        phone = await database.get_setting(session, 'contact_phone', '+7 (921) 892-51-57')
+        address = await database.get_setting(session, 'contact_address', 'Санкт-Петербург, ул. Маршала Захарова, 20Д (Зумба у залива)')
+    
     text = (
-        "<b>📍 Наш адрес:</b>\n\n"
-        "Санкт-Петербург, ул. Маршала Захарова, 20Д\n"
-        "Студия «Zumba у Залива»\n\n"
-        "🗺 <a href='https://yandex.ru/maps/org/zumba_u_zaliva/99077668985'>Открыть в Яндекс Картах</a>"
+        f"<b>📍 Наш адрес:</b>\n\n"
+        f"{address}\n\n"
+        f"📞 Телефон: {phone}\n\n"
+        f"🗺 <a href='https://yandex.ru/maps/org/zumba_u_zaliva/99077668985'>Открыть в Яндекс Картах</a>"
     )
     await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
 
@@ -326,7 +350,8 @@ async def show_admin_panel(message: Message):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Сегодняшние записи", callback_data="adm_today")],
-        [InlineKeyboardButton(text="📊 Статистика", callback_data="adm_stats")]
+        [InlineKeyboardButton(text="📊 Статистика", callback_data="adm_stats")],
+        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="adm_edit_main")]
     ])
     await message.answer("👩‍🏫 <b>Панель тренера</b>", reply_markup=kb, parse_mode="HTML")
 
@@ -431,6 +456,217 @@ async def admin_stats(callback: CallbackQuery):
 @dp.callback_query(F.data == "adm_main")
 async def back_to_admin_main(callback: CallbackQuery):
     await show_admin_panel(callback.message)
+    await callback.answer()
+
+# ============================================================================
+# АДМИН-ПАНЕЛЬ: РЕДАКТИРОВАНИЕ НАСТРОЕК
+# ============================================================================
+
+@dp.callback_query(F.data == "adm_edit_main")
+async def admin_edit_main(callback: CallbackQuery):
+    """Главное меню редактирования настроек"""
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💰 Цены", callback_data="adm_edit_prices")],
+        [InlineKeyboardButton(text="📞 Контакты", callback_data="adm_edit_contacts")],
+        [InlineKeyboardButton(text="📅 Расписание", callback_data="adm_edit_schedule")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_main")]
+    ])
+    await callback.message.edit_text(
+        "✏️ <b>Редактирование настроек</b>\n\nВыберите, что хотите изменить:",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "adm_edit_prices")
+async def admin_edit_prices(callback: CallbackQuery):
+    """Меню редактирования цен"""
+    async with AsyncSessionLocal() as session:
+        prices = {
+            '8_lessons_name': await database.get_setting(session, 'price_8_lessons_name', '8 занятий'),
+            '8_lessons_price': await database.get_setting(session, 'price_8_lessons_price', '4800₽'),
+            '6_lessons_name': await database.get_setting(session, 'price_6_lessons_name', '6 занятий'),
+            '6_lessons_price': await database.get_setting(session, 'price_6_lessons_price', '3900₽'),
+            '4_lessons_name': await database.get_setting(session, 'price_4_lessons_name', '4 занятия'),
+            '4_lessons_price': await database.get_setting(session, 'price_4_lessons_price', '2800₽'),
+            'single_name': await database.get_setting(session, 'price_single_name', 'Разовое посещение'),
+            'single_price': await database.get_setting(session, 'price_single_price', '750₽'),
+            'trial_name': await database.get_setting(session, 'price_trial_name', 'Пробная тренировка'),
+            'trial_price': await database.get_setting(session, 'price_trial_price', '500₽'),
+        }
+
+    text = (
+        "💰 <b>Текущие цены:</b>\n\n"
+        f"▪️ {prices['8_lessons_name']}: <b>{prices['8_lessons_price']}</b>\n"
+        f"▪️ {prices['6_lessons_name']}: <b>{prices['6_lessons_price']}</b>\n"
+        f"▪️ {prices['4_lessons_name']}: <b>{prices['4_lessons_price']}</b>\n"
+        f"▪️ {prices['single_name']}: <b>{prices['single_price']}</b>\n"
+        f"▪️ {prices['trial_name']}: <b>{prices['trial_price']}</b>\n\n"
+        "Выберите, что изменить:"
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="8 занятий", callback_data="adm_price_8")],
+        [InlineKeyboardButton(text="6 занятий", callback_data="adm_price_6")],
+        [InlineKeyboardButton(text="4 занятия", callback_data="adm_price_4")],
+        [InlineKeyboardButton(text="Разовое", callback_data="adm_price_1")],
+        [InlineKeyboardButton(text="Пробное", callback_data="adm_price_trial")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_main")]
+    ])
+
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("adm_price_"))
+async def admin_edit_price_item(callback: CallbackQuery, state: FSMContext):
+    """Редактирование конкретной цены"""
+    price_type = callback.data.split("_")[-1]
+    
+    type_names = {
+        '8': '8_lessons', '6': '6_lessons', '4': '4_lessons',
+        '1': 'single', 'trial': 'trial'
+    }
+    
+    base_name = type_names.get(price_type, '8_lessons')
+    
+    async with AsyncSessionLocal() as session:
+        current_name = await database.get_setting(session, f'price_{base_name}_name', f'{base_name.replace("_", " ")}')
+        current_price = await database.get_setting(session, f'price_{base_name}_price', '0₽')
+    
+    text = (
+        f"✏️ <b>Редактирование: {current_name}</b>\n\n"
+        f"Текущая цена: <b>{current_price}</b>\n\n"
+        "Отправьте новую цену (например: 500₽):"
+    )
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_prices")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await state.set_state(AdminEditFlow.waiting_for_price)
+    await state.update_data(price_type=f'price_{base_name}_price', price_name=current_name)
+    await callback.answer()
+
+@dp.message(AdminEditFlow.waiting_for_price)
+async def process_new_price(message: Message, state: FSMContext):
+    """Сохранение новой цены"""
+    data = await state.get_data()
+    price_type = data.get('price_type')
+    price_name = data.get('price_name')
+    new_price = message.text.strip()
+    
+    async with AsyncSessionLocal() as session:
+        await database.set_setting(session, price_type, new_price)
+    
+    await message.answer(
+        f"✅ Цена для \"{price_name}\" обновлена на <b>{new_price}</b>",
+        parse_mode="HTML"
+    )
+    await state.clear()
+    
+    # Показываем меню цен снова
+    await admin_edit_prices(message)
+
+@dp.callback_query(F.data == "adm_edit_contacts")
+async def admin_edit_contacts(callback: CallbackQuery):
+    """Меню редактирования контактов"""
+    async with AsyncSessionLocal() as session:
+        phone = await database.get_setting(session, 'contact_phone', '+7 (921) 892-51-57')
+        address = await database.get_setting(session, 'contact_address', 'Санкт-Петербург, ул. Маршала Захарова, 20Д (Зумба у залива)')
+    
+    text = (
+        "📞 <b>Текущие контакты:</b>\n\n"
+        f"📱 Телефон: <b>{phone}</b>\n"
+        f"📍 Адрес: <b>{address}</b>\n\n"
+        "Выберите, что изменить:"
+    )
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📱 Телефон", callback_data="adm_edit_phone")],
+        [InlineKeyboardButton(text="📍 Адрес", callback_data="adm_edit_address")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_main")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data == "adm_edit_phone")
+async def admin_edit_phone_start(callback: CallbackQuery, state: FSMContext):
+    """Начало редактирования телефона"""
+    async with AsyncSessionLocal() as session:
+        current_phone = await database.get_setting(session, 'contact_phone', '+7 (921) 892-51-57')
+    
+    text = (
+        f"✏️ <b>Редактирование телефона</b>\n\n"
+        f"Текущий телефон: <b>{current_phone}</b>\n\n"
+        "Отправьте новый номер телефона:"
+    )
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_contacts")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await state.set_state(AdminEditFlow.waiting_for_contact)
+    await state.update_data(contact_type='contact_phone')
+    await callback.answer()
+
+@dp.callback_query(F.data == "adm_edit_address")
+async def admin_edit_address_start(callback: CallbackQuery, state: FSMContext):
+    """Начало редактирования адреса"""
+    async with AsyncSessionLocal() as session:
+        current_address = await database.get_setting(session, 'contact_address', 'Санкт-Петербург, ул. Маршала Захарова, 20Д (Зумба у залива)')
+    
+    text = (
+        f"✏️ <b>Редактирование адреса</b>\n\n"
+        f"Текущий адрес: <b>{current_address}</b>\n\n"
+        "Отправьте новый адрес:"
+    )
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_contacts")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await state.set_state(AdminEditFlow.waiting_for_contact)
+    await state.update_data(contact_type='contact_address')
+    await callback.answer()
+
+@dp.message(AdminEditFlow.waiting_for_contact)
+async def process_new_contact(message: Message, state: FSMContext):
+    """Сохранение нового контакта"""
+    data = await state.get_data()
+    contact_type = data.get('contact_type')
+    new_contact = message.text.strip()
+    
+    async with AsyncSessionLocal() as session:
+        await database.set_setting(session, contact_type, new_contact)
+    
+    contact_name = "Телефон" if contact_type == 'contact_phone' else "Адрес"
+    await message.answer(
+        f"✅ {contact_name} обновлен: <b>{new_contact}</b>",
+        parse_mode="HTML"
+    )
+    await state.clear()
+    
+    # Показываем меню контактов снова
+    await admin_edit_contacts(message)
+
+@dp.callback_query(F.data == "adm_edit_schedule")
+async def admin_edit_schedule_info(callback: CallbackQuery):
+    """Информация о редактировании расписания"""
+    text = (
+        "📅 <b>Редактирование расписания</b>\n\n"
+        "Расписание редактируется через веб-админку.\n\n"
+        "Изменения в админке автоматически синхронизируются с ботом."
+    )
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_main")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     await callback.answer()
 
 @dp.callback_query(F.data.startswith("adm_conf_"))
@@ -541,8 +777,47 @@ async def create_lead(request: Request):
 
     me = await bot.get_me()
     bot_url = f"https://t.me/{me.username}?start={deep_link_code}"
-    
+
     return {"success": True, "bot_url": bot_url}
+
+@app.post("/api/settings/sync")
+async def sync_settings(request: Request):
+    """Синхронизация настроек из админки (JSON) в базу данных бота"""
+    try:
+        data = await request.json()
+        
+        async with AsyncSessionLocal() as session:
+            # Синхронизация цен
+            if 'prices' in data:
+                prices = data['prices']
+                for key, value in prices.items():
+                    if isinstance(value, dict):
+                        if 'name' in value:
+                            await database.set_setting(session, f'price_{key}_name', value['name'])
+                        if 'price' in value:
+                            await database.set_setting(session, f'price_{key}_price', value['price'])
+            
+            # Синхронизация контактов
+            if 'contact' in data:
+                contact = data['contact']
+                if 'phone' in contact:
+                    await database.set_setting(session, 'contact_phone', contact['phone'])
+                if 'address' in contact:
+                    await database.set_setting(session, 'contact_address', contact['address'])
+        
+        logger.info("Settings synchronized successfully")
+        return {"success": True, "message": "Настройки синхронизированы"}
+    
+    except Exception as e:
+        logger.error(f"Sync error: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/settings")
+async def get_settings():
+    """Получить все настройки"""
+    async with AsyncSessionLocal() as session:
+        settings = await database.get_all_settings(session)
+    return {"success": True, "settings": settings}
 
 # --- Lifecycle ---
 

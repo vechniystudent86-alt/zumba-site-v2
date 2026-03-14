@@ -337,14 +337,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 logMessage('INFO', 'Content saved successfully', ['bytes' => $bytesWritten]);
                 $message = '<div class="alert success">Изменения успешно сохранены!</div>';
 
-                // Синхронизация с базой данных бота
-                $syncResult = syncScheduleWithDatabase($scheduleData);
+                // Синхронизация с ботом через API
+                $syncResult = syncSettingsWithBot($newContent);
                 if ($syncResult['success']) {
-                    $message .= '<div class="alert success">✅ Расписание синхронизировано с ботом!</div>';
-                    logMessage('INFO', 'Database sync successful', ['records' => $syncResult['records_count'] ?? 0]);
+                    $message .= '<div class="alert success">✅ Настройки синхронизированы с ботом!</div>';
+                    logMessage('INFO', 'Bot sync successful');
                 } else {
-                    $message .= '<div class="alert error">⚠️ Ошибка синхронизации с ботом: ' . htmlspecialchars($syncResult['error']) . '</div>';
-                    logMessage('ERROR', 'Database sync failed', ['error' => $syncResult['error']]);
+                    $message .= '<div class="alert warning">⚠️ Бот не синхронизирован: ' . htmlspecialchars($syncResult['error']) . '</div>';
+                    logMessage('WARNING', 'Bot sync failed', ['error' => $syncResult['error']]);
                 }
                 
             } catch (Exception $e) {
@@ -542,207 +542,47 @@ $contact = $content['contact'] ?? [];
 
     <?php
     /**
-     * Синхронизация расписания из JSON в базу данных PostgreSQL
-     * Используется для связи админки с Telegram-ботом
-     * 
-     * @param array $schedule Массив расписания
-     * @return array Результат операции ['success' => bool, 'error' => string, 'records_count' => int]
+     * Синхронизация настроек с Telegram-ботом через API
+     *
+     * @param array $content Данные для синхронизации (цены, контакты)
+     * @return array Результат операции ['success' => bool, 'error' => string]
      */
-    function syncScheduleWithDatabase($schedule) {
-        $logPrefix = '[Zumba Admin DB Sync]';
+    function syncSettingsWithBot($content) {
+        $botApiUrl = 'http://bot:8000/api/settings/sync';
         
         try {
-            logMessage('INFO', "$logPrefix Starting database sync", ['records_count' => count($schedule)]);
+            $ch = curl_init($botApiUrl);
+            $jsonData = json_encode($content, JSON_UNESCAPED_UNICODE);
             
-            // Проверяем наличие файла с конфигом БД
-            $dbConfigPath = __DIR__ . '/../config/database.php';
-
-            if (!file_exists($dbConfigPath)) {
-                logMessage('DEBUG', "$logPrefix Database config file not found, using environment variables");
-                // Пробуем получить из переменных окружения
-                $dbUrl = getenv('DATABASE_URL');
-                if (!$dbUrl) {
-                    // Используем дефолтное значение как в bot/database.py
-                    $dbUrl = 'postgresql+asyncpg://zumba_user:zumba_pass@db:5432/zumba_db';
-                    logMessage('DEBUG', "$logPrefix Using default DATABASE_URL");
-                }
-            } else {
-                logMessage('DEBUG', "$logPrefix Loading database config from file");
-                $dbUrl = require $dbConfigPath;
-            }
-
-            // Парсим DATABASE_URL
-            // Формат: postgresql+asyncpg://user:pass@host:port/dbname
-            $parsed = parse_url(str_replace('postgresql+asyncpg://', 'postgresql://', $dbUrl));
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
             
-            if ($parsed === false) {
-                throw new Exception('Failed to parse DATABASE_URL');
-            }
-
-            $user = $parsed['user'] ?? 'zumba_user';
-            $pass = $parsed['pass'] ?? 'zumba_pass';
-            $host = $parsed['host'] ?? 'db';
-            $port = $parsed['port'] ?? '5432';
-            $dbname = ltrim($parsed['path'] ?? '/zumba_db', '/');
-
-            logMessage('DEBUG', "$logPrefix Database connection params", [
-                'host' => $host,
-                'port' => $port,
-                'dbname' => $dbname,
-                'user' => $user
-            ]);
-
-            // ========================================================================
-            // 2. УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК PDO
-            // ========================================================================
-            $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
             
-            try {
-                $pdo = new PDO($dsn, $user, $pass, [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                    PDO::ATTR_PERSISTENT => false
-                ]);
-                logMessage('INFO', "$logPrefix Database connection established");
-            } catch (PDOException $connError) {
-                // Детальное логирование ошибки подключения
-                $errorDetails = [
-                    'code' => $connError->getCode(),
-                    'message' => $connError->getMessage(),
-                    'dsn' => $dsn,
-                    'host' => $host
-                ];
-                logMessage('ERROR', "$logPrefix Database connection failed", $errorDetails);
-                throw new Exception('Не удалось подключиться к базе данных. Проверьте настройки подключения.');
-            }
-
-            // Проверка подключения перед синхронизацией
-            try {
-                $pdo->query('SELECT 1');
-                logMessage('DEBUG', "$logPrefix Database connection verified");
-            } catch (PDOException $pingError) {
-                logMessage('ERROR', "$logPrefix Database ping failed", ['error' => $pingError->getMessage()]);
-                throw new Exception('Потеряно соединение с базой данных.');
-            }
-
-            // Маппинг дней недели
-            $dayMap = [
-                'Пн' => 1, 'Понедельник' => 1, 'Mon' => 1,
-                'Вт' => 2, 'Вторник' => 2, 'Tue' => 2,
-                'Ср' => 3, 'Среда' => 3, 'Wed' => 3,
-                'Чт' => 4, 'Четверг' => 4, 'Thu' => 4,
-                'Пт' => 5, 'Пятница' => 5, 'Fri' => 5,
-                'Сб' => 6, 'Суббота' => 6, 'Sat' => 6,
-                'Вс' => 7, 'Воскресенье' => 7, 'Sun' => 7
-            ];
-
-            // Маппинг программ
-            $programMap = [
-                'classic' => 'classic', 'zumba' => 'classic', 'fitness' => 'classic',
-                'gold' => 'gold', 'zumba gold' => 'gold'
-            ];
-
-            // Очищаем текущее расписание (помечаем как неактивные, чтобы не нарушать FK)
-            logMessage('DEBUG', "$logPrefix Deactivating existing schedule");
-            $pdo->exec('UPDATE schedule SET is_active = false WHERE is_active = true');
-
-            // Вставляем новое расписание
-            $stmt = $pdo->prepare('
-                INSERT INTO schedule (day_of_week, time, program, is_active, capacity)
-                VALUES (:day, :time, :program, true, 20)
-            ');
-
-            $insertedCount = 0;
-            $skippedCount = 0;
-
-            foreach ($schedule as $index => $item) {
-                $day = $item['day'] ?? '';
-                $timeStr = $item['time_and_program'] ?? '';
-
-                // Определяем день недели
-                $dayOfWeek = $dayMap[$day] ?? null;
-                if (!$dayOfWeek) {
-                    logMessage('WARNING', "$logPrefix Skipping record $index - invalid day", ['day' => $day]);
-                    $skippedCount++;
-                    continue; // Пропускаем некорректные дни
-                }
-
-                // Извлекаем время из строки (например, "19:45 - Zumba fitness")
-                $time = validateTime($timeStr);
-                if ($time === null) {
-                    logMessage('WARNING', "$logPrefix Skipping record $index - invalid time", ['time_str' => $timeStr]);
-                    $skippedCount++;
-                    continue; // Пропускаем некорректное время
-                }
-
-                // Определяем программу
-                $timeStrLower = mb_strtolower($timeStr);
-                $program = 'classic'; // по умолчанию
-                foreach ($programMap as $key => $value) {
-                    if (strpos($timeStrLower, $key) !== false) {
-                        $program = $value;
-                        break;
-                    }
-                }
-
-                try {
-                    $stmt->execute([
-                        'day' => $dayOfWeek,
-                        'time' => $time,
-                        'program' => $program
-                    ]);
-                    $insertedCount++;
-                    logMessage('DEBUG', "$logPrefix Inserted schedule record", [
-                        'day' => $dayOfWeek,
-                        'time' => $time,
-                        'program' => $program
-                    ]);
-                } catch (PDOException $insertError) {
-                    logMessage('ERROR', "$logPrefix Failed to insert record $index", [
-                        'error' => $insertError->getMessage(),
-                        'data' => ['day' => $dayOfWeek, 'time' => $time, 'program' => $program]
-                    ]);
-                    // Продолжаем обработку остальных записей
-                }
-            }
-
-            logMessage('INFO', "$logPrefix Sync completed", [
-                'total' => count($schedule),
-                'inserted' => $insertedCount,
-                'skipped' => $skippedCount
-            ]);
-
-            return [
-                'success' => true, 
-                'message' => "Синхронизировано записей: $insertedCount",
-                'records_count' => $insertedCount
-            ];
-
-        } catch (PDOException $e) {
-            // Детальное логирование всех PDO ошибок
-            $errorDetails = [
-                'code' => $e->getCode(),
-                'message' => $e->getMessage(),
-                'sql_state' => $e->getCode(),
-                'trace' => $e->getTraceAsString()
-            ];
-            logMessage('ERROR', "$logPrefix PDO Exception", $errorDetails);
+            curl_close($ch);
             
-            return [
-                'success' => false, 
-                'error' => 'Ошибка базы данных: ' . $e->getMessage()
-            ];
+            if ($error) {
+                return ['success' => false, 'error' => $error];
+            }
+            
+            if ($httpCode !== 200) {
+                return ['success' => false, 'error' => "HTTP error: $httpCode"];
+            }
+            
+            $result = json_decode($response, true);
+            if ($result && isset($result['success']) && $result['success']) {
+                return ['success' => true];
+            }
+            
+            return ['success' => false, 'error' => $result['error'] ?? 'Unknown error'];
+            
         } catch (Exception $e) {
-            logMessage('ERROR', "$logPrefix General Exception", [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return [
-                'success' => false, 
-                'error' => 'Ошибка: ' . $e->getMessage()
-            ];
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
     ?>

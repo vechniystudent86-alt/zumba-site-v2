@@ -50,21 +50,30 @@ class Booking(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     schedule_id = Column(Integer, ForeignKey("schedule.id"), nullable=True)
-    
+
     # Поля для заявок с сайта, пока нет user_id
     client_name = Column(String)
     client_phone = Column(String)
-    
+
     program = Column(Enum(ProgramType))
     date = Column(DateTime)
     status = Column(Enum(BookingStatus), default=BookingStatus.PENDING)
     source = Column(Enum(BookingSource))
     deep_link_code = Column(String, unique=True, index=True)
     reminder_sent = Column(Boolean, default=False)
-    
+
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    
+
     user = relationship("User", back_populates="bookings")
+
+class Settings(Base):
+    """Модель для хранения настроек бота (цены, контакты)"""
+    __tablename__ = "settings"
+    
+    id = Column(Integer, primary_key=True)
+    key = Column(String, unique=True, nullable=False, index=True)  # например: 'price_8_lessons_name', 'contact_phone'
+    value = Column(String, nullable=False)  # значение
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -89,3 +98,32 @@ async def create_user(session: AsyncSession, tg_id: int, name: str, phone: str =
     session.add(user)
     await session.commit()
     return user
+
+# Helper functions для Settings
+async def get_setting(session: AsyncSession, key: str, default: str = None) -> str:
+    """Получить настройку по ключу"""
+    from sqlalchemy import select
+    result = await session.execute(select(Settings).where(Settings.key == key))
+    setting = result.scalars().first()
+    return setting.value if setting else default
+
+async def set_setting(session: AsyncSession, key: str, value: str):
+    """Установить настройку"""
+    from sqlalchemy import select, update
+    result = await session.execute(select(Settings).where(Settings.key == key))
+    setting = result.scalars().first()
+    
+    if setting:
+        setting.value = value
+    else:
+        setting = Settings(key=key, value=value)
+        session.add(setting)
+    
+    await session.commit()
+
+async def get_all_settings(session: AsyncSession) -> dict:
+    """Получить все настройки в виде словаря"""
+    from sqlalchemy import select
+    result = await session.execute(select(Settings))
+    settings = result.scalars().all()
+    return {s.key: s.value for s in settings}
