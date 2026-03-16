@@ -73,7 +73,10 @@ class BookingFlow(StatesGroup):
 class AdminEditFlow(StatesGroup):
     waiting_for_price = State()
     waiting_for_contact = State()
-    waiting_for_schedule = State()
+    waiting_for_schedule_day = State()
+    waiting_for_schedule_time = State()
+    waiting_for_schedule_program = State()
+    waiting_for_schedule_action = State()
 
 # --- Клавиатуры ---
 def get_main_kb(is_admin_user=False):
@@ -654,19 +657,327 @@ async def process_new_contact(message: Message, state: FSMContext):
     await admin_edit_contacts(message)
 
 @dp.callback_query(F.data == "adm_edit_schedule")
-async def admin_edit_schedule_info(callback: CallbackQuery):
-    """Информация о редактировании расписания"""
-    text = (
-        "📅 <b>Редактирование расписания</b>\n\n"
-        "Расписание редактируется через веб-админку.\n\n"
-        "Изменения в админке автоматически синхронизируются с ботом."
-    )
-    
+async def admin_edit_schedule_menu(callback: CallbackQuery):
+    """Меню редактирования расписания"""
     kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Показать расписание", callback_data="adm_schedule_show")],
+        [InlineKeyboardButton(text="➕ Добавить запись", callback_data="adm_schedule_add")],
+        [InlineKeyboardButton(text="✏️ Изменить запись", callback_data="adm_schedule_edit")],
+        [InlineKeyboardButton(text="❌ Удалить запись", callback_data="adm_schedule_delete")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_main")]
     ])
     
+    await callback.message.edit_text(
+        "📅 <b>Редактирование расписания</b>\n\nВыберите действие:",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "adm_schedule_show")
+async def admin_schedule_show(callback: CallbackQuery):
+    """Показать текущее расписание"""
+    async with AsyncSessionLocal() as session:
+        schedule_items = await database.get_all_schedule(session, active_only=True)
+    
+    if not schedule_items:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Добавить", callback_data="adm_schedule_add")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_schedule")]
+        ])
+        await callback.message.edit_text(
+            "📅 <b>Расписание пусто</b>\n\nДобавьте первую запись!",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        await callback.answer()
+        return
+    
+    days = {1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс"}
+    prog_map = {
+        ProgramType.CLASSIC: "Zumba Classic",
+        ProgramType.GOLD: "Zumba Gold",
+        ProgramType.TRIAL: "Пробная",
+        ProgramType.SINGLE: "Разовая"
+    }
+    
+    text = "📅 <b>Текущее расписание:</b>\n\n"
+    for item in schedule_items:
+        text += f"▪️ {days[item.day_of_week]} {item.time.strftime('%H:%M')} — {prog_map.get(item.program)}\n"
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_schedule")]
+    ])
+    
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data == "adm_schedule_add")
+async def admin_schedule_add_start(callback: CallbackQuery, state: FSMContext):
+    """Начало добавления записи в расписание"""
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_schedule")]
+    ])
+    
+    await callback.message.edit_text(
+        "➕ <b>Добавление записи</b>\n\n"
+        "Выберите день недели:\n"
+        "1️⃣ — Понедельник\n"
+        "2️⃣ — Вторник\n"
+        "3️⃣ — Среда\n"
+        "4️⃣ — Четверг\n"
+        "5️⃣ — Пятница\n"
+        "6️⃣ — Суббота\n"
+        "7️⃣ — Воскресенье\n\n"
+        "Отправьте номер дня (1-7):",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+    await state.set_state(AdminEditFlow.waiting_for_schedule_day)
+    await state.update_data(action='add')
+    await callback.answer()
+
+@dp.message(AdminEditFlow.waiting_for_schedule_day)
+async def process_schedule_day(message: Message, state: FSMContext):
+    """Обработка выбора дня недели"""
+    day_input = message.text.strip()
+    
+    if not day_input.isdigit() or not (1 <= int(day_input) <= 7):
+        await message.answer(
+            "❌ Неверный формат. Отправьте номер дня от 1 до 7:",
+            reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="🔙 Отмена")]], resize_keyboard=True)
+        )
+        return
+    
+    day = int(day_input)
+    await state.update_data(day=day)
+    
+    days = {1: "Понедельник", 2: "Вторник", 3: "Среда", 4: "Четверг", 5: "Пятница", 6: "Суббота", 7: "Воскресенье"}
+    
+    await message.answer(
+        f"✅ Выбрано: <b>{days[day]}</b>\n\n"
+        "Теперь отправьте время в формате ЧЧ:ММ (например, 19:45):",
+        parse_mode="HTML"
+    )
+    await state.set_state(AdminEditFlow.waiting_for_schedule_time)
+
+@dp.message(AdminEditFlow.waiting_for_schedule_time)
+async def process_schedule_time(message: Message, state: FSMContext):
+    """Обработка выбора времени"""
+    time_input = message.text.strip()
+    
+    import re
+    if not re.match(r'^\d{1,2}:\d{2}$', time_input):
+        await message.answer("❌ Неверный формат. Отправьте время в формате ЧЧ:ММ (например, 19:45):")
+        return
+    
+    hours, minutes = map(int, time_input.split(':'))
+    if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+        await message.answer("❌ Неверное время. Часы: 0-23, минуты: 0-59:")
+        return
+    
+    await state.update_data(time=time_input)
+    
+    await message.answer(
+        f"✅ Выбрано время: <b>{time_input}</b>\n\n"
+        "Выберите программу:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔥 Zumba Classic", callback_data="sched_prog_classic")],
+            [InlineKeyboardButton(text="💛 Zumba Gold", callback_data="sched_prog_gold")],
+            [InlineKeyboardButton(text="🌟 Пробная", callback_data="sched_prog_trial")],
+            [InlineKeyboardButton(text="🎟 Разовая", callback_data="sched_prog_single")]
+        ]),
+        parse_mode="HTML"
+    )
+    await state.set_state(AdminEditFlow.waiting_for_schedule_program)
+
+@dp.callback_query(AdminEditFlow.waiting_for_schedule_program, F.data.startswith("sched_prog_"))
+async def process_schedule_program(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора программы и сохранение записи"""
+    program = callback.data.split("_")[-1]
+    data = await state.get_data()
+    
+    day = data.get('day')
+    time = data.get('time')
+    action = data.get('action', 'add')
+    
+    days = {1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс"}
+    prog_map = {
+        'classic': "Zumba Classic",
+        'gold': "Zumba Gold",
+        'trial': "Пробная",
+        'single': "Разовая"
+    }
+    
+    async with AsyncSessionLocal() as session:
+        if action == 'add':
+            await database.add_schedule_item(session, day, time, program)
+            text = (
+                f"✅ <b>Запись добавлена!</b>\n\n"
+                f"📅 {days[day]} в {time}\n"
+                f"💃 {prog_map[program]}"
+            )
+        else:
+            schedule_id = data.get('schedule_id')
+            await database.update_schedule_item(session, schedule_id, day, time, program)
+            text = (
+                f"✅ <b>Запись обновлена!</b>\n\n"
+                f"📅 {days[day]} в {time}\n"
+                f"💃 {prog_map[program]}"
+            )
+    
+    await state.clear()
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Ещё запись", callback_data="adm_schedule_add")],
+        [InlineKeyboardButton(text="📋 К расписанию", callback_data="adm_schedule_show")],
+        [InlineKeyboardButton(text="🔙 В меню", callback_data="adm_edit_schedule")]
+    ])
+
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data == "adm_schedule_delete")
+async def admin_schedule_delete_start(callback: CallbackQuery, state: FSMContext):
+    """Начало удаления записи из расписания"""
+    async with AsyncSessionLocal() as session:
+        schedule_items = await database.get_all_schedule(session, active_only=True)
+
+    if not schedule_items:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_schedule")]
+        ])
+        await callback.message.edit_text(
+            "❌ <b>Расписание пусто</b>\n\nНечего удалять!",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        await callback.answer()
+        return
+
+    days = {1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс"}
+    prog_map = {
+        ProgramType.CLASSIC: "Zumba Classic",
+        ProgramType.GOLD: "Zumba Gold",
+        ProgramType.TRIAL: "Пробная",
+        ProgramType.SINGLE: "Разовая"
+    }
+
+    kb_buttons = []
+    for item in schedule_items:
+        btn_text = f"{days[item.day_of_week]} {item.time.strftime('%H:%M')} — {prog_map.get(item.program)}"
+        kb_buttons.append([InlineKeyboardButton(text=btn_text, callback_data=f"adm_sched_del_{item.id}")])
+    kb_buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_schedule")])
+
+    await callback.message.edit_text(
+        "❌ <b>Удаление записи</b>\n\nВыберите запись для удаления:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_buttons),
+        parse_mode="HTML"
+    )
+    await state.set_state(AdminEditFlow.waiting_for_schedule_action)
+    await state.update_data(action='delete')
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("adm_sched_del_"))
+async def admin_schedule_delete_confirm(callback: CallbackQuery, state: FSMContext):
+    """Подтверждение удаления записи"""
+    schedule_id = int(callback.data.split("_")[-1])
+
+    async with AsyncSessionLocal() as session:
+        await database.delete_schedule_item(session, schedule_id)
+
+    await state.clear()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❌ Удалить ещё", callback_data="adm_schedule_delete")],
+        [InlineKeyboardButton(text="📋 К расписанию", callback_data="adm_schedule_show")],
+        [InlineKeyboardButton(text="🔙 В меню", callback_data="adm_edit_schedule")]
+    ])
+
+    await callback.message.edit_text(
+        "✅ <b>Запись удалена!</b>",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "adm_schedule_edit")
+async def admin_schedule_edit_start(callback: CallbackQuery, state: FSMContext):
+    """Начало редактирования записи"""
+    async with AsyncSessionLocal() as session:
+        schedule_items = await database.get_all_schedule(session, active_only=True)
+
+    if not schedule_items:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_schedule")]
+        ])
+        await callback.message.edit_text(
+            "❌ <b>Расписание пусто</b>\n\nНечего редактировать!",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        await callback.answer()
+        return
+
+    days = {1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс"}
+    prog_map = {
+        ProgramType.CLASSIC: "Zumba Classic",
+        ProgramType.GOLD: "Zumba Gold",
+        ProgramType.TRIAL: "Пробная",
+        ProgramType.SINGLE: "Разовая"
+    }
+
+    kb_buttons = []
+    for item in schedule_items:
+        btn_text = f"{days[item.day_of_week]} {item.time.strftime('%H:%M')} — {prog_map.get(item.program)}"
+        kb_buttons.append([InlineKeyboardButton(text=btn_text, callback_data=f"adm_sched_edit_{item.id}")])
+    kb_buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_schedule")])
+
+    await callback.message.edit_text(
+        "✏️ <b>Редактирование записи</b>\n\nВыберите запись для изменения:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_buttons),
+        parse_mode="HTML"
+    )
+    await state.set_state(AdminEditFlow.waiting_for_schedule_action)
+    await state.update_data(action='edit')
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("adm_sched_edit_"))
+async def admin_schedule_edit_select(callback: CallbackQuery, state: FSMContext):
+    """Выбор записи для редактирования"""
+    schedule_id = int(callback.data.split("_")[-1])
+
+    async with AsyncSessionLocal() as session:
+        schedule_item = await session.get(Schedule, schedule_id)
+        if not schedule_item:
+            await callback.answer("❌ Запись не найдена", show_alert=True)
+            return
+
+    days = {1: "Понедельник", 2: "Вторник", 3: "Среда", 4: "Четверг", 5: "Пятница", 6: "Суббота", 7: "Воскресенье"}
+    prog_map = {
+        ProgramType.CLASSIC: "Zumba Classic",
+        ProgramType.GOLD: "Zumba Gold",
+        ProgramType.TRIAL: "Пробная",
+        ProgramType.SINGLE: "Разовая"
+    }
+
+    await state.update_data(schedule_id=schedule_id, action='edit')
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="adm_edit_schedule")]
+    ])
+
+    await callback.message.edit_text(
+        f"✏️ <b>Редактирование записи</b>\n\n"
+        f"Текущие данные:\n"
+        f"📅 {days[schedule_item.day_of_week]}\n"
+        f"⏰ {schedule_item.time.strftime('%H:%M')}\n"
+        f"💃 {prog_map.get(schedule_item.program)}\n\n"
+        f"Выберите новый день недели (1-7):",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+    await state.set_state(AdminEditFlow.waiting_for_schedule_day)
     await callback.answer()
 
 @dp.callback_query(F.data.startswith("adm_conf_"))

@@ -127,3 +127,52 @@ async def get_all_settings(session: AsyncSession) -> dict:
     result = await session.execute(select(Settings))
     settings = result.scalars().all()
     return {s.key: s.value for s in settings}
+
+# Helper functions для Schedule
+async def get_all_schedule(session: AsyncSession, active_only: bool = True):
+    """Получить всё расписание"""
+    from sqlalchemy import select
+    query = select(Schedule).order_by(Schedule.day_of_week, Schedule.time)
+    if active_only:
+        query = query.where(Schedule.is_active == True)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+async def add_schedule_item(session: AsyncSession, day_of_week: int, time_str: str, program: str):
+    """Добавить запись в расписание"""
+    import datetime
+    hours, minutes = map(int, time_str.split(':'))
+    schedule_item = Schedule(
+        day_of_week=day_of_week,
+        time=datetime.time(hours, minutes),
+        program=ProgramType(program),
+        is_active=True
+    )
+    session.add(schedule_item)
+    await session.commit()
+    return schedule_item
+
+async def delete_schedule_item(session: AsyncSession, schedule_id: int):
+    """Удалить запись из расписания (пометить как неактивную)"""
+    schedule_item = await session.get(Schedule, schedule_id)
+    if schedule_item:
+        schedule_item.is_active = False
+        await session.commit()
+        return True
+    return False
+
+async def update_schedule_item(session: AsyncSession, schedule_id: int, day_of_week: int = None, time_str: str = None, program: str = None):
+    """Обновить запись в расписании"""
+    import datetime
+    schedule_item = await session.get(Schedule, schedule_id)
+    if schedule_item:
+        if day_of_week is not None:
+            schedule_item.day_of_week = day_of_week
+        if time_str is not None:
+            hours, minutes = map(int, time_str.split(':'))
+            schedule_item.time = datetime.time(hours, minutes)
+        if program is not None:
+            schedule_item.program = ProgramType(program)
+        await session.commit()
+        return schedule_item
+    return None
